@@ -36,14 +36,11 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET row_security = off;
 
--- Désactiver temporairement les contraintes
-SET session_replication_role = replica;
-
 -- ===============================================
--- 1. CRÉATION DES TABLES
+-- 1. CRÉATION DES TABLES (avec IF NOT EXISTS)
 -- ===============================================
 
--- Suppression des tables existantes (si elles existent)
+-- Suppression des tables existantes en respectant les dépendances
 DROP TABLE IF EXISTS order_items CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS transfers CASCADE;
@@ -55,7 +52,7 @@ DROP TABLE IF EXISTS admins CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- Table users
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
@@ -68,7 +65,7 @@ CREATE TABLE users (
 );
 
 -- Table admins  
-CREATE TABLE admins (
+CREATE TABLE IF NOT EXISTS admins (
     id SERIAL PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
@@ -82,7 +79,7 @@ CREATE TABLE admins (
 );
 
 -- Table categories
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
@@ -91,7 +88,7 @@ CREATE TABLE categories (
 );
 
 -- Table products
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     name_fr TEXT NOT NULL,
     name_en TEXT NOT NULL,
@@ -103,11 +100,11 @@ CREATE TABLE products (
     image_url TEXT,
     in_stock BOOLEAN DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (category_id) REFERENCES categories(id)
+    CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
 -- Table services
-CREATE TABLE services (
+CREATE TABLE IF NOT EXISTS services (
     id SERIAL PRIMARY KEY,
     name_fr TEXT NOT NULL,
     name_en TEXT NOT NULL,
@@ -123,7 +120,7 @@ CREATE TABLE services (
 );
 
 -- Table orders
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     total DECIMAL NOT NULL,
@@ -132,22 +129,22 @@ CREATE TABLE orders (
     shipping_address JSONB NOT NULL,
     square_payment_id TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- Table order_items
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL,
     product_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
     price DECIMAL NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
+    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id),
+    CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
 -- Table transfers
-CREATE TABLE transfers (
+CREATE TABLE IF NOT EXISTS transfers (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     amount DECIMAL NOT NULL,
@@ -165,11 +162,11 @@ CREATE TABLE transfers (
     bank_name TEXT,
     account_number TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    CONSTRAINT fk_transfers_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- Table exchange_rates
-CREATE TABLE exchange_rates (
+CREATE TABLE IF NOT EXISTS exchange_rates (
     id SERIAL PRIMARY KEY,
     from_currency TEXT NOT NULL,
     to_currency TEXT NOT NULL,
@@ -177,10 +174,15 @@ CREATE TABLE exchange_rates (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+`;
 
+const insertDataSQL = `
 -- ===============================================
 -- 2. INSERTION DES DONNÉES DE BASE
 -- ===============================================
+
+-- Vider les tables avant insertion (pour éviter les doublons)
+TRUNCATE TABLE exchange_rates, services, order_items, orders, transfers, products, categories, admins, users RESTART IDENTITY CASCADE;
 
 -- Insertion des utilisateurs
 INSERT INTO users (id, username, email, password, first_name, last_name, phone, created_at, role) VALUES
@@ -212,29 +214,27 @@ INSERT INTO products (id, name_fr, name_en, description_fr, description_en, pric
 -- Insertion des services
 INSERT INTO services (id, name_fr, name_en, short_description_fr, short_description_en, full_description_fr, full_description_en, slug, image_url, is_active, created_at, updated_at) VALUES
 (1, 'Paniers ménagers', 'Household Baskets', 'Service de paniers ménagers pour la diaspora africaine', 'Household basket service for African diaspora', 'La Coop. Arcade propose des paniers ménagers personnalisés contenant des produits essentiels pour les familles. Ce service permet d''envoyer des cadeaux en nature plutôt que de l''argent.', 'Coop. Arcade offers personalized household baskets containing essential products for families. This service allows sending gifts in kind rather than money.', 'paniers-menagers', '/uploads/services/baskets.jpg', true, '2025-05-29 13:00:55.461277', '2025-05-29 18:39:06.322'),
-
 (2, 'Aide aux familles', 'Family Assistance', 'Assistance financière et logistique aux familles', 'Financial and logistical assistance to families', 'Grâce à nos partenariats avec les institutions de microfinance et les opérateurs télécoms, nous offrons des services de proximité aux familles dans le besoin.', 'Through our partnerships with microfinance institutions and telecom operators, we offer proximity services to families in need.', 'aide-aux-familles', '/uploads/services/family-aid.jpg', true, '2025-05-29 13:03:27.48239', '2025-05-29 18:41:35.002'),
-
 (3, 'Étudiants internationaux', 'International Students', 'Accompagnement des étudiants internationaux', 'Support for international students', 'Services d''orientation, d''accueil et d''intégration pour les étudiants internationaux. Nous facilitons les démarches administratives et les paiements universitaires.', 'Orientation, reception and integration services for international students. We facilitate administrative procedures and university payments.', 'etudiants-internationaux', '/uploads/services/students.jpg', true, '2025-05-29 13:04:35.787903', '2025-05-29 18:43:47.719'),
-
 (4, 'Tutorat AIDE AU SAVOIR', 'Tutoring HELP TO KNOWLEDGE', 'Programme de tutorat pour l''excellence académique', 'Tutoring program for academic excellence', 'Programme de tutorat personnalisé pour accompagner les étudiants dans leur parcours académique. Nous croyons que l''éducation est la clé du succès.', 'Personalized tutoring program to support students in their academic journey. We believe that education is the key to success.', 'tutorat-aide-au-savoir', '/uploads/services/tutoring.jpg', true, '2025-05-29 13:06:07.926842', '2025-05-29 18:44:08.326'),
-
 (5, 'Organisation d''événements sociaux', 'Social Event Organization', 'Organisation complète d''événements communautaires', 'Complete organization of community events', 'Service complet d''organisation d''événements sociaux et culturels pour la communauté africaine. De la planification à la réalisation, nous vous accompagnons.', 'Complete social and cultural event organization service for the African community. From planning to execution, we support you.', 'organisation-evenements-sociaux', '/uploads/services/events.jpg', true, '2025-05-29 13:19:35.371333', '2025-06-02 12:48:22.062');
 
 -- Insertion des taux de change
 INSERT INTO exchange_rates (id, from_currency, to_currency, rate, created_at, updated_at) VALUES
 (1, 'CAD', 'XOF', 400.00, '2025-05-29 11:48:35.123', '2025-05-29 11:48:35.123');
+`;
 
+const finalSQL = `
 -- ===============================================
 -- 3. RÉINITIALISATION DES SÉQUENCES
 -- ===============================================
 
-SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
-SELECT setval('admins_id_seq', (SELECT MAX(id) FROM admins));  
-SELECT setval('categories_id_seq', (SELECT MAX(id) FROM categories));
-SELECT setval('products_id_seq', (SELECT MAX(id) FROM products));
-SELECT setval('services_id_seq', (SELECT MAX(id) FROM services));
-SELECT setval('exchange_rates_id_seq', (SELECT MAX(id) FROM exchange_rates));
+SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 1));
+SELECT setval('admins_id_seq', COALESCE((SELECT MAX(id) FROM admins), 1));  
+SELECT setval('categories_id_seq', COALESCE((SELECT MAX(id) FROM categories), 1));
+SELECT setval('products_id_seq', COALESCE((SELECT MAX(id) FROM products), 1));
+SELECT setval('services_id_seq', COALESCE((SELECT MAX(id) FROM services), 1));
+SELECT setval('exchange_rates_id_seq', COALESCE((SELECT MAX(id) FROM exchange_rates), 1));
 
 -- ===============================================
 -- 4. INDEX DE PERFORMANCE
@@ -246,9 +246,6 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_transfers_user ON transfers(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_admins_username ON admins(username);
-
--- Réactiver les contraintes
-SET session_replication_role = DEFAULT;
 `;
 
 async function runMigration() {
@@ -260,10 +257,18 @@ async function runMigration() {
     await client.connect();
     console.log('✅ Connexion établie!');
 
-    // Exécution de la migration
-    console.log('🔧 Exécution de la migration...');
+    // Exécution de la migration en étapes séparées
+    console.log('🔧 Création des tables...');
     await client.query(migrationSQL);
-    console.log('✅ Migration exécutée avec succès!');
+    console.log('✅ Tables créées!');
+
+    console.log('📝 Insertion des données...');
+    await client.query(insertDataSQL);
+    console.log('✅ Données insérées!');
+
+    console.log('🔧 Finalisation (séquences et index)...');
+    await client.query(finalSQL);
+    console.log('✅ Migration finalisée!');
 
     // Vérification des données
     console.log('📊 Vérification des données...');
@@ -284,7 +289,8 @@ async function runMigration() {
 
     console.log('📈 Résumé des données:');
     result.rows.forEach(row => {
-    console.log('   ' + row.table_name + ': ' + row.count + ' enregistrement(s)');    });
+      console.log(`   ${row.table_name}: ${row.count} enregistrement(s)`);
+    });
 
     console.log('');
     console.log('🎉 MIGRATION RÉUSSIE!');
@@ -304,6 +310,7 @@ async function runMigration() {
 
   } catch (error) {
     console.error('❌ Erreur lors de la migration:', error.message);
+    console.error('📝 Stack trace:', error.stack);
     
     if (error.message.includes('does not exist')) {
       console.error('💡 Suggestion: Vérifiez que DATABASE_URL est correcte');
@@ -311,6 +318,10 @@ async function runMigration() {
     
     if (error.message.includes('connect')) {
       console.error('💡 Suggestion: Vérifiez la connectivité réseau');
+    }
+    
+    if (error.message.includes('permission denied')) {
+      console.error('💡 Suggestion: L\'utilisateur de la DB manque de permissions');
     }
     
     process.exit(1);
