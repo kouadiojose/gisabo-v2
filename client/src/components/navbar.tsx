@@ -95,7 +95,7 @@ export default function Navbar() {
           <Link href="/" className="flex items-center space-x-2">
             <img
               width="150"
-              src="/gisabo-logo.png"
+              src="./attached_assets/gisabo_logo.png"
               alt="Gisabo Group"
               className="h-10 w-auto"
             />
