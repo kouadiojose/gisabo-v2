@@ -76,6 +76,12 @@ export const translations = {
       fullDetails: "Détails complets",
       serviceAvailable: "Service disponible",
       close: "Fermer",
+      callUs: "Appelez-nous",
+      writeUs: "Écrivez-nous",
+      noServices: "Aucun service disponible",
+      noServicesText: "Les services seront bientôt disponibles.",
+      personalizedService: "Service personnalisé",
+      personalizedText: "Contactez-nous pour des solutions adaptées à vos besoins",
     },
     marketplace: {
       title: "Marketplace",
@@ -315,6 +321,12 @@ export const translations = {
       fullDetails: "Full details",
       serviceAvailable: "Service available",
       close: "Close",
+      callUs: "Call us",
+      writeUs: "Write us",
+      noServices: "No services available",
+      noServicesText: "Services will be available soon.",
+      personalizedService: "Personalized Service",
+      personalizedText: "Contactez-nous pour des solutions adaptées à vos besoins",
     },
     marketplace: {
       title: "Marketplace",
@@ -422,7 +434,10 @@ export const translations = {
         filters: "Filters",
         new: "New transfer",
         transferTo: "Transfer to",
-        viewAll: "View all"
+        viewAll: "View all",
+        noTransfers: "No transfers made",
+        noTransfersText: "You haven't made any transfers yet."
+
       },
       status: {
         pending: "Pending",

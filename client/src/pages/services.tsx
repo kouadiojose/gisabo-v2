@@ -27,10 +27,10 @@ export default function Services() {
         {/* Header Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-gray-900 mb-4 font-poppins">
-            {t('services.title')}
+            {t('servicesSection.title')}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            {t('services.subtitle')}
+            {t('servicesSection.subtitle')}
           </p>
         </div>
 
@@ -89,7 +89,7 @@ export default function Services() {
                       onClick={() => setSelectedService(service)}
                       className="bg-primary hover:bg-primary/90 text-white"
                     >
-                      {t('services.details')}
+                      {t('servicesSection.details')}
                     </Button>
                   </CardContent>
                 </Card>
@@ -101,10 +101,10 @@ export default function Services() {
               <i className="fas fa-concierge-bell text-3xl text-gray-400"></i>
             </div>
             <h3 className="text-2xl font-semibold text-gray-900 mb-4">
-              {t('services.noServices')}
+              {t('servicesSection.noServices')}
             </h3>
             <p className="text-gray-600 max-w-md mx-auto">
-              {t('services.noServicesText')}
+              {t('servicesSection.noServicesText')}
             </p>
           </div>
         )}
@@ -185,10 +185,10 @@ export default function Services() {
         {/* Contact Section */}
         <div className="mt-20 bg-primary text-white rounded-2xl p-8 md:p-12 text-center">
           <h2 className="text-3xl font-bold mb-4 font-poppins">
-            {t('services.personalizedService')}
+            {t('servicesSection.personalizedService')}
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            {t('services.personalizedText')}
+            {t('servicesSection.personalizedText')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
@@ -196,14 +196,14 @@ export default function Services() {
               className="bg-white text-primary px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
             >
               <i className="fas fa-phone"></i>
-              {t('services.callUs')}
+              {t('servicesSection.callUs')}
             </a>
             <a
               href="mailto:contact@gisabogroup.ca"
               className="border-2 border-white text-white px-6 py-3 rounded-lg font-medium hover:bg-white hover:text-primary transition-colors flex items-center justify-center gap-2"
             >
               <i className="fas fa-envelope"></i>
-              {t('services.writeUs')}
+              {t('servicesSection.writeUs')}
             </a>
           </div>
         </div>
