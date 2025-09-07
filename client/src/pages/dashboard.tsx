@@ -36,6 +36,7 @@ export default function Dashboard() {
     enabled: authenticated,
     queryFn: async () => {
       const headers = getAuthHeaders();
+
       const response = await fetch("/api/auth/me", {
         headers: headers || {},
       });

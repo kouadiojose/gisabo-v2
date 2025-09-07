@@ -160,6 +160,7 @@ export const translations = {
       totalToPay: "Total à payer",
       continue: "Continuer",
       recipientInfo: "Informations du destinataire",
+      financialDetails: "Détails de la transaction",
     },
     dashboard: {
       title: "Tableau de bord",
@@ -183,7 +184,9 @@ export const translations = {
         filters: "Filtres",
         new: "Nouveau transfert",
         transferTo: "Transfert vers",
-        viewAll: "Voir tout"
+        viewAll: "Voir tout",
+        noTransfers: "Aucun transfert effectué",
+        noTransfersText: "Vous n'avez pas encore effectué de transferts."
       },
       status: {
         pending: "En attente",
