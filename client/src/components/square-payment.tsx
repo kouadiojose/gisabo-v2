@@ -27,6 +27,7 @@ export default function SquarePayment({
   const [card, setCard] = useState<any>(null);
   const [afterpay, setAfterpay] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const cardContainerRef = useRef<HTMLDivElement>(null);
   const afterpayContainerRef = useRef<HTMLDivElement>(null);
 
@@ -37,21 +38,19 @@ export default function SquarePayment({
       // Attendre que le conteneur soit disponible
       let attempts = 0;
       while (attempts < 20 && !cardContainerRef.current) {
-        console.log(`🔍 Tentative ${attempts + 1}/20 - Recherche du conteneur...`);
         await new Promise((resolve) => setTimeout(resolve, 100));
         attempts++;
       }
-      console.log("📍 Conteneur trouvé:", cardContainerRef.current);
       return cardContainerRef.current;
     };
 
     const initSquare = async () => {
       try {
-        console.log("🔄 Initialisation Square...");
+        // Initialize Square SDK
 
         // Attendre que Square SDK soit chargé
         if (!window.Square) {
-          console.log("⏳ Attente du chargement de Square SDK...");
+          // Wait for Square SDK to load
           let attempts = 0;
           while (!window.Square && attempts < 50) {
             await new Promise((resolve) => setTimeout(resolve, 100));
@@ -71,7 +70,7 @@ export default function SquarePayment({
 
         if (!mounted) return;
 
-        console.log("✅ Square SDK chargé");
+        // Square SDK loaded
 
         const applicationId = import.meta.env.VITE_SQUARE_APPLICATION_ID;
         const locationId = import.meta.env.VITE_SQUARE_LOCATION_ID;
@@ -109,17 +108,15 @@ export default function SquarePayment({
           
           if (document.getElementById('afterpay-button')) {
             await afterpayInstance.attach('#afterpay-button');
-            console.log("✅ Bouton Afterpay attaché avec succès !");
+            // Afterpay button attached
             
             // Ajouter l'écouteur d'événement pour le clic comme dans la documentation
             const afterpayButton = document.getElementById('afterpay-button');
             if (afterpayButton) {
               afterpayButton.addEventListener('click', async (event) => {
-                console.log("🔔 Clic sur bouton Afterpay détecté");
                 try {
                   const tokenResult = await afterpayInstance.tokenize();
                   if (tokenResult.status === 'OK') {
-                    console.log(`Payment token is ${tokenResult.token}`);
                     onPaymentSuccess(tokenResult.token);
                   } else {
                     let errorMessage = `Tokenization failed with status: ${tokenResult.status}`;
@@ -135,13 +132,13 @@ export default function SquarePayment({
               });
             }
           } else {
-            console.log("⚠️ Conteneur afterpay-button non trouvé dans le DOM");
+            // Afterpay container not found
           }
         } catch (afterpayError: any) {
-          console.log("ℹ️ Afterpay non disponible:", afterpayError.message);
+          // Afterpay not available for this configuration
         }
 
-        console.log("✅ Square initialisé avec succès !");
+        // Square initialized successfully
         setIsLoading(false);
       } catch (error: any) {
         console.error("❌ Erreur Square:", error);
@@ -168,11 +165,9 @@ export default function SquarePayment({
   }, [amount, currency]);
 
   const handleCardPayment = async () => {
-    if (!card) {
-      onPaymentError("Le formulaire de carte n'est pas prêt");
-      return;
-    }
+    if (!card || isSubmitting) return;
 
+    setIsSubmitting(true);
     try {
       const result = await card.tokenize();
 
@@ -183,10 +178,12 @@ export default function SquarePayment({
           ? result.errors[0].message
           : "Erreur lors du traitement de la carte";
         onPaymentError(errorMessage);
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error("Erreur de paiement carte:", error);
       onPaymentError("Erreur lors du traitement du paiement");
+      setIsSubmitting(false);
     }
   };
 
@@ -299,7 +296,7 @@ export default function SquarePayment({
           {/* Bouton de paiement par carte */}
           <Button
             onClick={handleCardPayment}
-            disabled={isProcessing || isLoading || !card}
+            disabled={isProcessing || isLoading || !card || isSubmitting}
             size="lg"
             className="w-full bg-green-600 hover:bg-green-700 text-white py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
           >

@@ -12,8 +12,8 @@ import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
 
 const JWT_SECRET = process.env.JWT_SECRET || "gisabo-admin-secret-key-2024";
-const SQUARE_APPLICATION_ID = process.env.SQUARE_APPLICATION_ID || "sandbox-sq0idb-example";
-const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN || "sandbox-access-token";
+const SQUARE_APPLICATION_ID = process.env.SQUARE_APPLICATION_ID || "";
+const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN || "";
 
 // Configuration de multer pour le téléchargement d'images
 // Configuration pour les images de services
@@ -487,12 +487,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // 🔒 CONFIGURATION SÉCURISÉE DE L'API SQUARE
-      console.log('🔧 Configuration de l\'API Square...');
-      console.log('Environment variable:', process.env.SQUARE_ENVIRONMENT);
-      console.log('Access Token disponible:', !!process.env.SQUARE_ACCESS_TOKEN);
-      console.log('Location ID disponible:', !!process.env.SQUARE_LOCATION_ID);
-
       const squareEnvironment = process.env.SQUARE_ENVIRONMENT === 'production' ? 'production' : 'sandbox';
       const baseUrl = squareEnvironment === 'production' 
         ? 'https://connect.squareup.com' 
@@ -552,7 +546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         const result = await response.json();
-        console.log('📄 Réponse Square API:', JSON.stringify(result, null, 2));
+        // Log only payment status, not full response
         
         if (response.ok && result.payment) {
           const payment = result.payment;
@@ -795,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           const result = await response.json();
-          console.log('📄 Réponse Square API pour commande:', JSON.stringify(result, null, 2));
+          // Log only payment status, not full response
           
           if (response.ok && result.payment) {
             const payment = result.payment;
@@ -907,7 +901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         const result = await response.json();
-        console.log('📄 Réponse Square API pour commande:', JSON.stringify(result, null, 2));
+        // Log only payment status, not full response
         
         if (response.ok && result.payment) {
           const payment = result.payment;
@@ -1064,7 +1058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const decoded = jwt.verify(token, JWT_SECRET) as any;
-      console.log('Decoded token:', decoded); // Debug log
+      // Token decoded successfully
       
       const admin = await storage.getAdmin(decoded.adminId);
       console.log('Found admin:', admin ? 'Yes' : 'No', 'for ID:', decoded.adminId); // Debug log
@@ -1076,7 +1070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (req as any).admin = admin;
       next();
     } catch (error) {
-      console.log('Token verification error:', error); // Debug log
+      console.error('Token verification error');
       return res.status(403).json({ message: 'Invalid admin token' });
     }
   };
