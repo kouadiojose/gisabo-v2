@@ -12,16 +12,15 @@ import path from 'path';
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
-  console.error('❌ DATABASE_URL n\'est pas définie!');
-  console.error('Assure-toi que les variables d\'environnement sont configurées.');
-  process.exit(1);
+  console.error('[MIGRATE] DATABASE_URL non définie, migration ignorée.');
+  process.exit(0);
 }
 
+// SSL uniquement si explicitement requis dans l'URL
+const useSSL = DATABASE_URL.includes('sslmode=require');
 const client = new Client({
   connectionString: DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: useSSL ? { rejectUnauthorized: false } : false
 });
 
 const migrationSQL = `
@@ -321,24 +320,12 @@ async function runMigration() {
     console.log('🚀 Votre marketplace est prête!');
 
   } catch (error) {
-    console.error('❌ Erreur lors de la migration:', error.message);
-    console.error('📝 Stack trace:', error.stack);
-    
-    if (error.message.includes('does not exist')) {
-      console.error('💡 Suggestion: Vérifiez que DATABASE_URL est correcte');
-    }
-    
-    if (error.message.includes('connect')) {
-      console.error('💡 Suggestion: Vérifiez la connectivité réseau');
-    }
-    
-    if (error.message.includes('permission denied')) {
-      console.error('💡 Suggestion: L\'utilisateur de la DB manque de permissions');
-    }
-    
-    process.exit(1);
+    console.error('[MIGRATE] Erreur:', error.message);
+    console.error('[MIGRATE] Stack:', error.stack);
+    // Ne pas exit(1) pour que npm start puisse quand même démarrer
+    console.error('[MIGRATE] La migration a échoué mais le serveur va démarrer.');
   } finally {
-    await client.end();
+    try { await client.end(); } catch (e) { /* ignore */ }
   }
 }
 
