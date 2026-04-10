@@ -251,11 +251,23 @@ CREATE INDEX IF NOT EXISTS idx_admins_username ON admins(username);
 async function runMigration() {
   try {
     console.log('🚀 Démarrage de la migration Gisabo...');
-    
+
     // Connexion à la base de données
     console.log('📡 Connexion à la base de données...');
     await client.connect();
     console.log('✅ Connexion établie!');
+
+    // Vérifier si la migration a déjà été exécutée
+    try {
+      const check = await client.query('SELECT COUNT(*) FROM categories');
+      if (parseInt(check.rows[0].count) > 0) {
+        console.log('✅ Base de données déjà initialisée, migration ignorée.');
+        return;
+      }
+    } catch (e) {
+      // Table n'existe pas encore, on continue avec la migration
+      console.log('📦 Base de données vide, lancement de la migration...');
+    }
 
     // Exécution de la migration en étapes séparées
     console.log('🔧 Création des tables...');
