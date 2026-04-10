@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm ci && npm run build"
+dockerfilePath = ""
 
 [deploy]
 startCommand = "node migrate.js && npm start"
