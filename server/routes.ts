@@ -337,7 +337,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categories = await storage.getCategories();
       res.json(categories);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      console.error("Error fetching categories:", error.message);
+      res.json([]);
     }
   });
 
@@ -349,10 +350,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const language = req.query.lang as string || 'fr'; // Default to French
       const services = await storage.getServices();
-      
+
       // Only return active services for public display
       const activeServices = services.filter(service => service.isActive);
-      
+
       // Transform services to include the correct language fields
       const localizedServices = activeServices.map(service => ({
         id: service.id,
@@ -363,10 +364,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: service.imageUrl,
         isActive: service.isActive
       }));
-      
+
       res.json(localizedServices);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      console.error("Error fetching services:", error.message);
+      res.json([]);
     }
   });
 
@@ -398,7 +400,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(localizedProducts);
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      console.error("Error fetching products:", error.message);
+      res.json([]);
     }
   });
 
@@ -1594,7 +1597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ suggestions });
     } catch (error: any) {
       console.error("Suggestions error:", error);
-      res.status(500).json({ suggestions: [] });
+      res.json({ suggestions: [] });
     }
   });
 

@@ -31,8 +31,7 @@ export default function Marketplace() {
   const { language } = useLanguage();
 
   const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products", language],
-    queryFn: () => fetch(`/api/products?lang=${language}`).then(res => res.json()),
+    queryKey: [`/api/products?lang=${language}`],
   });
 
   const createOrderMutation = useMutation({
