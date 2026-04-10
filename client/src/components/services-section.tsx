@@ -20,9 +20,7 @@ export default function ServicesSection() {
   const { t, language } = useLanguage();
 
   const { data: services, isLoading } = useQuery<Service[]>({
-    queryKey: ["/api/services", language],
-    queryFn: () =>
-      fetch(`/api/services?lang=${language}`).then((res) => res.json()),
+    queryKey: [`/api/services?lang=${language}`],
   });
 
   if (isLoading) {
