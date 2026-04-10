@@ -29,10 +29,6 @@ VITE_SQUARE_LOCATION_ID=votre-location-square
 # === PRECONFIGURÉES (Déjà dans le code, ne les ajoutez pas) ===
 # Ces variables sont déjà codées en dur dans l'application
 
-# CINETPAY_API_KEY=69528412765f9bbf5cb3ac6.86470919  # Déjà configurée
-# CINETPAY_SITE_ID=105897933  # Déjà configurée
-# CINETPAY_CURRENCY=XOF  # Déjà configurée
-
 # =============================================================================
 # COMMENT GÉNÉRER LES SECRETS SÉCURISÉS :
 # =============================================================================

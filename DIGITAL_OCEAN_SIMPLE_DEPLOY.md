@@ -44,8 +44,6 @@ VITE_SQUARE_APPLICATION_ID=votre-app-id-square
 VITE_SQUARE_LOCATION_ID=votre-location-square
 ```
 
-**Note**: CinetPay est déjà configuré dans le code !
-
 ### Étape 5: Déployer ! (15 min)
 1. Cliquez **"Next"** → **"Create Resources"**
 2. Digital Ocean va automatiquement :

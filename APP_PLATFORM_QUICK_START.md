@@ -35,11 +35,6 @@ VITE_SQUARE_LOCATION_ID=LVOTRE_LOCATION_ID
 # Email 
 SENDGRID_API_KEY=SG.VOTRE_CLE_SENDGRID
 
-# CinetPay (Paiements Africains)
-CINETPAY_API_KEY=69528412765f9bbf5cb3ac6.86470919
-CINETPAY_SITE_ID=105897933
-CINETPAY_ENVIRONMENT=production
-
 # Sécurité (64 caractères minimum)
 SESSION_SECRET=votre_secret_session_tres_long_et_securise_64_caracteres_minimum
 ```

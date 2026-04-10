@@ -5,7 +5,7 @@
 Votre application GISABO est maintenant **100% prête** pour le déploiement sur Digital Ocean App Platform avec :
 
 ✅ **Assistant Gisabo AI** intégré avec OpenAI GPT-4o  
-✅ **Système de paiement** Square + CinetPay configuré  
+✅ **Système de paiement** Square configuré  
 ✅ **Marketplace** produits africains  
 ✅ **Transferts d'argent** internationaux  
 ✅ **Multi-langue** (Français/Anglais)  
@@ -68,10 +68,6 @@ Votre app sera disponible sur : `https://[nom-app].ondigitalocean.app`
 Ces variables sont **déjà configurées** et fonctionnelles :
 
 ```bash
-# CinetPay (Production)
-CINETPAY_API_KEY=69528412765f9bbf5cb3ac6.86470919
-CINETPAY_SITE_ID=105897933
-
 # Application (Auto-configurées par Digital Ocean)
 DATABASE_URL=${gisabo-db.DATABASE_URL}
 NODE_ENV=production
@@ -82,7 +78,6 @@ PORT=5000
 
 1. **🤖 Assistant Gisabo** - Chatbot AI en français/anglais
 2. **💳 Paiements Square** - Cartes + Afterpay
-3. **💰 Paiements CinetPay** - Mobile money Afrique
 4. **🛒 Marketplace** - Produits africains authentiques
 5. **💸 Transferts** - Envoi d'argent international
 6. **👥 Authentification** - Comptes utilisateurs sécurisés

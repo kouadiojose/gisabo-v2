@@ -99,7 +99,6 @@ Votre app sera disponible sur :
 
 ### ✅ Variables Minimales
 - Seulement 3 variables obligatoires
-- CinetPay déjà préconfigurée dans le code
 - Square et SendGrid optionnelles (ajoutables plus tard)
 
 ### ✅ Support Inclus

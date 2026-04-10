@@ -128,7 +128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         database: !!process.env.DATABASE_URL,
         square: !!process.env.SQUARE_ACCESS_TOKEN,
         openai: !!process.env.OPENAI_API_KEY,
-        cinetpay: !!process.env.CINETPAY_API_KEY,
         session: !!process.env.SESSION_SECRET
       };
       

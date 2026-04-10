@@ -36,11 +36,6 @@ SQUARE_ENVIRONMENT=production
 VITE_SQUARE_APPLICATION_ID=votre_app_id_square
 VITE_SQUARE_LOCATION_ID=votre_location_id_square
 
-# 💰 CINETPAY (PRODUCTION)
-CINETPAY_API_KEY=69528412765f9bbf5cb3ac6.86470919
-CINETPAY_SITE_ID=105897933
-CINETPAY_CURRENCY=XOF
-
 # 🤖 OPENAI (pour Assistant Gisabo)
 OPENAI_API_KEY=votre_openai_api_key
 
@@ -79,7 +74,7 @@ Surveillez les logs pour vérifier :
 1. **Page d'accueil** : Vérifiez que le site se charge
 2. **Authentification** : Testez la connexion utilisateur
 3. **Assistant Gisabo** : Vérifiez que le chatbot fonctionne
-4. **Paiements** : Testez les intégrations Square et CinetPay
+4. **Paiements** : Testez l'intégration Square
 5. **Base de données** : Vérifiez les opérations CRUD
 
 ## 🚨 Résolution de Problèmes
@@ -103,7 +98,7 @@ Surveillez les logs pour vérifier :
 
 En cas de problème :
 1. Consultez les logs Digital Ocean
-2. Vérifiez la documentation Square et CinetPay
+2. Vérifiez la documentation Square
 3. Contactez le support technique si nécessaire
 
 ---

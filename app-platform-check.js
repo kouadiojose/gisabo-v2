@@ -98,9 +98,6 @@ const envVars = [
   'VITE_SQUARE_APPLICATION_ID',
   'VITE_SQUARE_LOCATION_ID',
   'SENDGRID_API_KEY (SG....)',
-  'CINETPAY_API_KEY',
-  'CINETPAY_SITE_ID', 
-  'CINETPAY_ENVIRONMENT=production',
   'SESSION_SECRET (64+ caractères)'
 ];
 

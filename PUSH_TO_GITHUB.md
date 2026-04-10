@@ -23,7 +23,7 @@ git commit -m "Configuration optimisée pour Digital Ocean App Platform
 ✅ Scripts robustes avec gestion timeouts
 ✅ Documentation complète déploiement/dépannage
 ✅ Secrets sécurisés générés
-✅ CinetPay préconfigurée + Assistant Gisabo AI
+✅ Assistant Gisabo AI
 
 Prêt pour Digital Ocean App Platform"
 ```

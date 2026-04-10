@@ -45,10 +45,6 @@
 - [ ] `SESSION_SECRET` = [Secret 64+ caractères généré]
 - [ ] `JWT_SECRET` = [Secret JWT généré]
 
-#### Variables CinetPay (✅ Préconfigurées)
-- [ ] `CINETPAY_API_KEY=69528412765f9bbf5cb3ac6.86470919`
-- [ ] `CINETPAY_SITE_ID=105897933`
-
 ## 🚀 Déploiement
 
 ### Processus de Build

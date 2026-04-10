@@ -20,13 +20,6 @@ VITE_SQUARE_APPLICATION_ID=sq0idp-your-application-id
 VITE_SQUARE_LOCATION_ID=L1ABC123DEF456
 ```
 
-### 💰 CinetPay (PRODUCTION - Configuré)
-```bash
-CINETPAY_API_KEY=69528412765f9bbf5cb3ac6.86470919
-CINETPAY_SITE_ID=105897933
-CINETPAY_CURRENCY=XOF
-```
-
 ### 🤖 OpenAI (Assistant Gisabo)
 ```bash
 OPENAI_API_KEY=sk-your-openai-api-key-here
