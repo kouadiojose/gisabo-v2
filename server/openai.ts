@@ -1,12 +1,8 @@
 import OpenAI from "openai";
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY environment variable must be set");
-}
-
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // Contexte de l'application GISABO pour l'assistant
 const GISABO_CONTEXT = `
@@ -58,6 +54,10 @@ export async function chatWithGisaboAssistant(
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
 ): Promise<string> {
   try {
+    if (!openai) {
+      return "L'assistant est temporairement indisponible. Veuillez réessayer plus tard ou contacter le support.";
+    }
+
     const messages = [
       { role: 'system' as const, content: GISABO_CONTEXT },
       ...conversationHistory,

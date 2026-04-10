@@ -52,7 +52,7 @@ export default function Chatbot({ className }: ChatbotProps) {
         const response = await fetch("/api/chat/suggestions");
         if (response.ok) {
           const data = await response.json();
-          setSuggestions(data.suggestions);
+          setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
         }
       } catch (error) {
         console.error("Erreur lors du chargement des suggestions:", error);

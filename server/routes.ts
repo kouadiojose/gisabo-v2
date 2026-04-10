@@ -108,16 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/assets', express.static('attached_assets'));
   
 
-  // Health check endpoint for DigitalOcean
-  app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-      status: 'healthy', 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    });
-  });
-  
-  // Health check endpoint for Digital Ocean App Platform - Must be first!
+  // Health check endpoint - returns 200 immediately for Railway/hosting health checks
   const healthCheckHandler = async (req: Request, res: Response) => {
     try {
       // Test database connection
@@ -155,7 +146,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  // Digital Ocean App Platform expects /health endpoint (without /api)
   app.get("/health", healthCheckHandler);
   app.get("/api/health", healthCheckHandler);
 

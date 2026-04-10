@@ -55,8 +55,9 @@ export default function Dashboard() {
         const response = await fetch("/api/transfers", {
           headers: headers || {},
         });
-        if (!response.ok) throw new Error("Failed to fetch transfers");
-        return response.json();
+        if (!response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
       },
     },
   );
@@ -69,14 +70,15 @@ export default function Dashboard() {
       const response = await fetch("/api/orders", {
         headers: headers || {},
       });
-      if (!response.ok) throw new Error("Failed to fetch orders");
-      return response.json();
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
   // Filtrage et limitation des transactions
   const filteredTransfers = useMemo(() => {
-    if (!transfers) return [];
+    if (!transfers || !Array.isArray(transfers)) return [];
 
     let filtered = [...transfers];
 
@@ -104,7 +106,7 @@ export default function Dashboard() {
   }, [transfers, showAllTransfers, dateFrom, dateTo]);
 
   const filteredOrders = useMemo(() => {
-    if (!orders) return [];
+    if (!orders || !Array.isArray(orders)) return [];
 
     let filtered = [...orders];
 
@@ -177,13 +179,13 @@ export default function Dashboard() {
     );
   };
 
-  const totalSent =
-    transfers?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
-  const transfersThisMonth =
-    transfers?.filter(
-      (t) => new Date(t.createdAt).getMonth() === new Date().getMonth(),
-    ).length || 0;
-  const totalOrders = orders?.length || 0;
+  const safeTransfers = Array.isArray(transfers) ? transfers : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const totalSent = safeTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+  const transfersThisMonth = safeTransfers.filter(
+    (t) => new Date(t.createdAt).getMonth() === new Date().getMonth(),
+  ).length;
+  const totalOrders = safeOrders.length;
 
   return (
     <div className="min-h-screen bg-gray-50">

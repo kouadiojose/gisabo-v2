@@ -184,7 +184,7 @@ export default function Marketplace() {
               </Card>
             ))}
           </div>
-        ) : products && products.length > 0 ? (
+        ) : Array.isArray(products) && products.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {products.map((product) => (
               <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow bg-white">

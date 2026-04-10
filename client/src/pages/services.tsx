@@ -11,12 +11,7 @@ export default function Services() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   
   const { data: services, isLoading } = useQuery<Service[]>({
-    queryKey: ["/api/services", language],
-    queryFn: async () => {
-      const response = await fetch(`/api/services?lang=${language}`);
-      if (!response.ok) throw new Error("Failed to fetch services");
-      return response.json();
-    },
+    queryKey: [`/api/services?lang=${language}`],
   });
 
   return (
@@ -49,7 +44,7 @@ export default function Services() {
               </Card>
             ))}
           </div>
-        ) : services && services.length > 0 ? (
+        ) : Array.isArray(services) && services.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {services
               .filter(service => service.isActive)

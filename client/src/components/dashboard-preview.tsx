@@ -16,7 +16,8 @@ export default function DashboardPreview() {
         headers: getAuthHeaders(),
       });
       if (!response.ok) return [];
-      return response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
@@ -28,12 +29,16 @@ export default function DashboardPreview() {
         headers: getAuthHeaders(),
       });
       if (!response.ok) return [];
-      return response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
+  const safeTransfers = Array.isArray(transfers) ? transfers : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
   const recentTransactions = [
-    ...(transfers?.slice(0, 2).map(t => ({
+    ...(safeTransfers.slice(0, 2).map(t => ({
       id: t.id,
       type: 'transfer' as const,
       description: `Transaction vers ${t.recipientName}`,
@@ -44,7 +49,7 @@ export default function DashboardPreview() {
       iconColor: 'text-green-600',
       bgColor: 'bg-green-100',
     })) || []),
-    ...(orders?.slice(0, 1).map(o => ({
+    ...(safeOrders.slice(0, 1).map(o => ({
       id: o.id,
       type: 'order' as const,
       description: 'Achat Marketplace',
@@ -83,10 +88,10 @@ export default function DashboardPreview() {
     }
   };
 
-  const totalSent = transfers?.reduce((sum, t) => sum + parseFloat(t.amount), 0) || 0;
-  const transfersThisMonth = transfers?.filter(t => 
+  const totalSent = safeTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+  const transfersThisMonth = safeTransfers.filter(t =>
     new Date(t.createdAt).getMonth() === new Date().getMonth()
-  ).length || 0;
+  ).length;
 
   return (
     <section className="py-16 bg-gray-50">

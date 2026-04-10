@@ -132,8 +132,9 @@ export default function AdminSidebar() {
       const response = await makeAuthenticatedRequest(
         "/api/admin/exchange-rates",
       );
-      if (!response.ok) throw new Error("Failed to fetch exchange rates");
-      return response.json();
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
@@ -145,7 +146,7 @@ export default function AdminSidebar() {
       const response = await makeAuthenticatedRequest(
         "/api/admin/dashboard-stats",
       );
-      if (!response.ok) throw new Error("Failed to fetch dashboard stats");
+      if (!response.ok) return { recentTransfers: [], totalUsers: 0, totalTransfers: 0, totalOrders: 0 };
       return response.json();
     },
   });
@@ -155,8 +156,9 @@ export default function AdminSidebar() {
     enabled: isAdminAuthenticated(),
     queryFn: async () => {
       const response = await makeAuthenticatedRequest("/api/admin/services");
-      if (!response.ok) throw new Error("Failed to fetch services");
-      return response.json();
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
@@ -165,8 +167,9 @@ export default function AdminSidebar() {
     enabled: isAdminAuthenticated(),
     queryFn: async () => {
       const response = await makeAuthenticatedRequest("/api/admin/products");
-      if (!response.ok) throw new Error("Failed to fetch products");
-      return response.json();
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 

@@ -13,7 +13,7 @@ export default function MarketplaceCategories() {
     queryKey: ["/api/products"],
   });
 
-  const featuredProducts = products?.slice(0, 4) || [];
+  const featuredProducts = Array.isArray(products) ? products.slice(0, 4) : [];
 
   if (categoriesLoading || productsLoading) {
     return (
@@ -66,7 +66,7 @@ export default function MarketplaceCategories() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6">
-          {categories?.map((category) => (
+          {Array.isArray(categories) && categories.map((category) => (
             <Link key={category.id} href={`/marketplace?category=${category.id}`}>
               <Card className="hover:shadow-lg transition-all cursor-pointer group hover:-translate-y-1">
                 <CardContent className="p-6">
