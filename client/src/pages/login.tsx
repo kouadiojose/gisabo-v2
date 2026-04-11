@@ -32,11 +32,15 @@ export default function Login() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginData),
       });
-      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Identifiants invalides");
+        const text = await response.text();
+        let msg;
+        try { msg = JSON.parse(text).message; } catch { msg = text; }
+        throw new Error(msg || "Identifiants invalides");
       }
+
+      const data = await response.json();
 
       setAuthToken(data.token);
       toast({

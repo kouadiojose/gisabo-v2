@@ -192,12 +192,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).send("Identifiants invalides");
       }
 
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).send("Identifiants invalides");
       }
 
       const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
