@@ -51,9 +51,17 @@ export default function Register() {
       
       navigate("/dashboard");
     } catch (error: any) {
+      let errorMsg = error.message || "Erreur inconnue";
+      try {
+        const jsonMatch = errorMsg.match(/\{.*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.message) errorMsg = parsed.message;
+        }
+      } catch { /* use original message */ }
       toast({
         title: "Erreur d'inscription",
-        description: error.message,
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {
