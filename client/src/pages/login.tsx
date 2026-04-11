@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { setAuthToken } from "@/lib/auth";
 import { Link } from "wouter";
 import Navbar from "@/components/navbar";
@@ -24,34 +23,32 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Map email to username for API compatibility
       const loginData = {
         username: formData.email,
         password: formData.password
       };
-      const response = await apiRequest("POST", "/api/auth/login", loginData);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginData),
+      });
       const data = await response.json();
-      
+
+      if (!response.ok) {
+        throw new Error(data.message || "Identifiants invalides");
+      }
+
       setAuthToken(data.token);
       toast({
         title: "Connexion réussie",
         description: `Bienvenue, ${data.user.firstName}!`,
       });
-      
+
       navigate("/dashboard");
     } catch (error: any) {
-      let errorMsg = error.message || "Erreur inconnue";
-      // Parse JSON error messages like '401: {"message":"Invalid credentials"}'
-      try {
-        const jsonMatch = errorMsg.match(/\{.*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (parsed.message) errorMsg = parsed.message;
-        }
-      } catch { /* use original message */ }
       toast({
         title: "Erreur de connexion",
-        description: errorMsg,
+        description: error.message,
         variant: "destructive",
       });
     } finally {

@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { setAuthToken } from "@/lib/auth";
 import { Link } from "wouter";
 import Navbar from "@/components/navbar";
@@ -40,28 +39,28 @@ export default function Register() {
 
     try {
       const { confirmPassword, ...registrationData } = formData;
-      const response = await apiRequest("POST", "/api/auth/register", registrationData);
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registrationData),
+      });
       const data = await response.json();
-      
+
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur lors de l'inscription");
+      }
+
       setAuthToken(data.token);
       toast({
         title: "Inscription réussie",
         description: `Bienvenue sur GISABO, ${data.user.firstName}!`,
       });
-      
+
       navigate("/dashboard");
     } catch (error: any) {
-      let errorMsg = error.message || "Erreur inconnue";
-      try {
-        const jsonMatch = errorMsg.match(/\{.*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (parsed.message) errorMsg = parsed.message;
-        }
-      } catch { /* use original message */ }
       toast({
         title: "Erreur d'inscription",
-        description: errorMsg,
+        description: error.message,
         variant: "destructive",
       });
     } finally {

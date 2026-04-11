@@ -37,17 +37,9 @@ export default function AdminLogin() {
       setLocation("/admin");
     },
     onError: (error: Error) => {
-      let errorMsg = error.message || "Erreur inconnue";
-      try {
-        const jsonMatch = errorMsg.match(/\{.*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (parsed.message) errorMsg = parsed.message;
-        }
-      } catch { /* use original */ }
       toast({
         title: "Erreur de connexion",
-        description: errorMsg,
+        description: error.message,
         variant: "destructive",
       });
     },
