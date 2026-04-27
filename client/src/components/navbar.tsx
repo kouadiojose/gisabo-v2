@@ -61,16 +61,16 @@ export default function Navbar() {
         {t("nav.marketplace")}
       </Link>
       <Link
-        href="/services"
-        className="text-gray-700 hover:text-primary font-medium transition-colors"
-      >
-        {t("nav.services")}
-      </Link>
-      <Link
         href="/gisabo"
         className="text-gray-700 hover:text-primary font-medium transition-colors"
       >
         Gisabo
+      </Link>
+      <Link
+        href="/services"
+        className="text-gray-700 hover:text-primary font-medium transition-colors"
+      >
+        {t("nav.services")}
       </Link>
       <Link
         href="/fonctionnement"

@@ -197,7 +197,7 @@ export default function Fonctionnement() {
               {
                 question: "Quels sont les frais de transfert ?",
                 answer:
-                  "Nos frais sont transparents : 2,5% du montant envoyé avec un minimum de 2,99€. Aucun frais caché.",
+                  "Nos frais de transfert sont de 0%. Aucun frais caché. Vous payez uniquement le montant que vous envoyez.",
               },
               {
                 question: "Comment puis-je suivre ma transaction ?",

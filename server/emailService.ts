@@ -17,8 +17,8 @@ const transporter = nodemailer.createTransport({
 });
 
 // Email de l'administrateur (à configurer selon vos besoins)
-const ADMIN_EMAIL = "admin@gisabogroup.ca"; // Vous pouvez changer cet email
-const FROM_EMAIL = "noreply@gisabogroup.ca"; // Email expéditeur vérifié dans SendGrid
+const ADMIN_EMAIL = "gisabonet@gmail.com";
+const FROM_EMAIL = "noreply@gisabogroup.ca";
 
 export async function sendTransferConfirmationEmail(
     transfer: Transfer,
@@ -202,7 +202,7 @@ export async function sendTransferConfirmationEmail(
         
         <div class="footer">
             <p>🌍 <strong>Gisabo Group</strong> - Votre partenaire de confiance pour les transferts d'argent</p>
-            <p>📧 Contact: info@gisabogroup.ca | 🌐 www.gisabogroup.ca</p>
+            <p>📧 Contact: gisabonet@gmail.com | 📞 +1 (613) 762-6686</p>
         </div>
     </div>
 </body>
@@ -246,10 +246,10 @@ Mode livraison: ${transfer.deliveryMethod}
 ${transfer.bankName ? `Nom de la banque: ${transfer.bankName}` : ""}
 ${transfer.accountNumber ? `Numéro de compte: ${transfer.accountNumber}` : ""}
 ID Paiement Square: ${paymentId}
-Relevé sur carte bancaire: SQ*Gisabo Transfer
+Relevé sur carte bancaire: SQ*Coop Arcade
 
 Gisabo Group - Votre partenaire de confiance pour les transferts d'argent
-Contact: info@gisabogroup.ca | www.gisabogroup.ca
+Contact: gisabonet@gmail.com | +1 (613) 762-6686
     `;
 
         // Envoi de l'email au client
@@ -264,7 +264,7 @@ Contact: info@gisabogroup.ca | www.gisabogroup.ca
         // Envoi d'une copie à l'administrateur
         await transporter.sendMail({
             from: `TRANSFERT GISABO <${FROM_EMAIL}>`,
-            to: [ADMIN_EMAIL, "yeoyedjande@gmail.com"],
+            to: [ADMIN_EMAIL],
             subject: `Nouveau transfert - ${refNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVEAU TRANSFERT EFFECTUÉ\n\n${emailText}`,
             html: emailHTML,
@@ -423,7 +423,7 @@ export async function sendOrderConfirmationEmail(
         
         <div class="footer">
             <p><strong>Gisabo Group</strong> - Votre marketplace de confiance</p>
-            <p>📧 Contact: info@gisabogroup.ca | 🌐 www.gisabogroup.ca</p>
+            <p>📧 Contact: gisabonet@gmail.com | 📞 +1 (613) 762-6686</p>
         </div>
     </div>
 </body>
@@ -455,7 +455,7 @@ ID Transaction: ${paymentId}
 Relevé bancaire: SQ*Coop Arcade
 
 Gisabo Group - Votre marketplace de confiance
-Contact: info@gisabogroup.ca | www.gisabogroup.ca
+Contact: gisabonet@gmail.com | +1 (613) 762-6686
     `;
 
         // Envoi de l'email au client
@@ -470,7 +470,7 @@ Contact: info@gisabogroup.ca | www.gisabogroup.ca
         // Envoi d'une copie à l'administrateur
         await transporter.sendMail({
             from: FROM_EMAIL,
-            to: [ADMIN_EMAIL, "yeoyedjande@gmail.com"],
+            to: [ADMIN_EMAIL],
             subject: `Nouvelle commande - ${orderNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVELLE COMMANDE EFFECTUÉE\n\n${emailText}`,
             html: emailHTML,

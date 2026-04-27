@@ -238,7 +238,7 @@ export const translations = {
         step4Title: "Vérification",
         step4Desc: "Vérifiez tous les détails de votre transaction avant de procéder au paiement",
         step5Title: "Paiement sécurisé",
-        step5Desc: "Effectuez votre paiement via notre plateforme sécurisée Square",
+        step5Desc: "Effectuez votre paiement via notre plateforme sécurisée Square. Vous pouvez aussi payer en 4 fois avec Afterpay",
         step6Title: "Confirmation",
         step6Desc: "Recevez la confirmation instantanée et suivez votre transaction en temps réel"
       },
@@ -483,7 +483,7 @@ export const translations = {
         step4Title: "Verification",
         step4Desc: "Review all transaction details before proceeding to payment",
         step5Title: "Secure Payment",
-        step5Desc: "Make your payment through our secure Square platform",
+        step5Desc: "Make your payment through our secure Square platform. You can also pay in 4 installments with Afterpay",
         step6Title: "Confirmation",
         step6Desc: "Receive instant confirmation and track your transaction in real-time"
       },

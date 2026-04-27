@@ -58,16 +58,16 @@ export default function Contact() {
       icon: "fas fa-envelope",
       title: t('contact.methods.email.title'),
       description: t('contact.methods.email.description'),
-      info: "support@gisabogroup.ca",
-      action: "mailto:support@gisabogroup.ca",
+      info: "gisabonet@gmail.com",
+      action: "mailto:gisabonet@gmail.com",
       color: "primary"
     },
     {
       icon: "fas fa-phone",
       title: t('contact.methods.phone.title'),
       description: t('contact.methods.phone.description'),
-      info: "+1 (514) 123-4567",
-      action: "tel:+15141234567",
+      info: "+1 (613) 762-6686",
+      action: "tel:+16137626686",
       color: "secondary"
     },
     {
@@ -349,11 +349,11 @@ export default function Contact() {
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <i className="fas fa-phone text-red-600"></i>
-                    <span className="font-semibold text-red-800">+1 (514) 999-URGENT</span>
+                    <span className="font-semibold text-red-800">+1 (613) 700-0764</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <i className="fas fa-envelope text-red-600"></i>
-                    <span className="font-semibold text-red-800">urgent@gisabogroup.ca</span>
+                    <span className="font-semibold text-red-800">gisabonet@gmail.com</span>
                   </div>
                 </div>
               </CardContent>
@@ -375,25 +375,18 @@ export default function Contact() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                city: "Montréal",
+                city: "Gatineau",
                 country: "Canada",
-                address: "123 Rue Saint-Laurent, Montréal, QC H2X 2T3",
-                phone: "+1 (514) 123-4567",
-                email: "montreal@gisabogroup.ca"
+                address: "9, rue Amherst, Gatineau, QC",
+                phone: "+1 (613) 762-6686",
+                email: "gisabonet@gmail.com"
               },
               {
-                city: "Toronto", 
+                city: "Ottawa",
                 country: "Canada",
-                address: "456 Bay Street, Toronto, ON M5H 2Y4",
-                phone: "+1 (416) 987-6543",
-                email: "toronto@gisabogroup.ca"
-              },
-              {
-                city: "Paris",
-                country: "France", 
-                address: "78 Avenue des Champs-Élysées, 75008 Paris",
-                phone: "+33 1 23 45 67 89",
-                email: "paris@gisabogroup.ca"
+                address: "Ottawa, ON",
+                phone: "+1 (613) 700-0764",
+                email: "gisabonet@gmail.com"
               }
             ].map((office, index) => (
               <Card key={index} className="hover:shadow-md transition-shadow">
