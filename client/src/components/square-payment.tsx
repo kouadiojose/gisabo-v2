@@ -1,11 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AFTERPAY_FEE_RATE, applyAfterpayFee } from "@shared/payment-fees";
 
 interface SquarePaymentProps {
   amount: string;
   currency: string;
-  onPaymentSuccess: (token: string) => void;
+  onPaymentSuccess: (token: string, paymentMethod: "card" | "afterpay") => void;
   onPaymentError: (error: string) => void;
   isProcessing: boolean;
 }
@@ -28,14 +37,23 @@ export default function SquarePayment({
   const [afterpay, setAfterpay] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAfterpayModal, setShowAfterpayModal] = useState(false);
+  const [isTokenizingAfterpay, setIsTokenizingAfterpay] = useState(false);
   const cardContainerRef = useRef<HTMLDivElement>(null);
   const afterpayContainerRef = useRef<HTMLDivElement>(null);
+  const afterpayRef = useRef<any>(null);
+
+  const baseAmount = parseFloat(amount) || 0;
+  const afterpayFeeAmount = Math.round(baseAmount * AFTERPAY_FEE_RATE * 100) / 100;
+  const afterpayTotal = applyAfterpayFee(baseAmount);
+  const afterpayTotalStr = afterpayTotal.toFixed(2);
+  const afterpayFeeStr = afterpayFeeAmount.toFixed(2);
+  const feePercentStr = (AFTERPAY_FEE_RATE * 100).toFixed(1).replace(".", ",");
 
   useEffect(() => {
     let mounted = true;
 
     const waitForContainer = async () => {
-      // Attendre que le conteneur soit disponible
       let attempts = 0;
       while (attempts < 20 && !cardContainerRef.current) {
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -46,11 +64,7 @@ export default function SquarePayment({
 
     const initSquare = async () => {
       try {
-        // Initialize Square SDK
-
-        // Attendre que Square SDK soit chargé
         if (!window.Square) {
-          // Wait for Square SDK to load
           let attempts = 0;
           while (!window.Square && attempts < 50) {
             await new Promise((resolve) => setTimeout(resolve, 100));
@@ -62,15 +76,12 @@ export default function SquarePayment({
           throw new Error("Square SDK non chargé après 5 secondes");
         }
 
-        // Attendre que le conteneur soit disponible
         const container = await waitForContainer();
         if (!container) {
           throw new Error("Conteneur non trouvé après 2 secondes");
         }
 
         if (!mounted) return;
-
-        // Square SDK loaded
 
         const applicationId = import.meta.env.VITE_SQUARE_APPLICATION_ID;
         const locationId = import.meta.env.VITE_SQUARE_LOCATION_ID;
@@ -79,69 +90,48 @@ export default function SquarePayment({
           throw new Error("Configuration Square manquante - applicationId ou locationId");
         }
 
-        // Créer l'instance de paiements
         const paymentsInstance = window.Square.payments(applicationId, locationId);
         setPayments(paymentsInstance);
 
-        // Créer la carte
         const cardInstance = await paymentsInstance.card();
         setCard(cardInstance);
         await cardInstance.attach(container);
 
-        // Initialiser Afterpay comme dans la documentation
         try {
           const paymentRequest = paymentsInstance.paymentRequest({
-            countryCode: 'CA', // Canada
+            countryCode: 'CA',
             currencyCode: currency,
             total: {
-              amount: amount,
-              label: 'Total',
+              amount: afterpayTotalStr,
+              label: 'Total (incl. frais Afterpay)',
             },
           });
 
           const afterpayInstance = await paymentsInstance.afterpayClearpay(paymentRequest);
           setAfterpay(afterpayInstance);
+          afterpayRef.current = afterpayInstance;
 
-          // Attendre que le conteneur Afterpay soit disponible
-          // Attendre un peu que le DOM soit prêt
           await new Promise(resolve => setTimeout(resolve, 200));
-          
+
           if (document.getElementById('afterpay-button')) {
             await afterpayInstance.attach('#afterpay-button');
-            // Afterpay button attached
-            
-            // Ajouter l'écouteur d'événement pour le clic comme dans la documentation
+
             const afterpayButton = document.getElementById('afterpay-button');
             if (afterpayButton) {
-              afterpayButton.addEventListener('click', async (event) => {
-                try {
-                  const tokenResult = await afterpayInstance.tokenize();
-                  if (tokenResult.status === 'OK') {
-                    onPaymentSuccess(tokenResult.token);
-                  } else {
-                    let errorMessage = `Tokenization failed with status: ${tokenResult.status}`;
-                    if (tokenResult.errors) {
-                      errorMessage += ` and errors: ${JSON.stringify(tokenResult.errors)}`;
-                    }
-                    throw new Error(errorMessage);
-                  }
-                } catch (e: any) {
-                  console.error(e.message);
-                  onPaymentError("Erreur Afterpay: " + e.message);
-                }
-              });
+              afterpayButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setShowAfterpayModal(true);
+              }, true);
             }
-          } else {
-            // Afterpay container not found
           }
         } catch (afterpayError: any) {
           // Afterpay not available for this configuration
         }
 
-        // Square initialized successfully
         setIsLoading(false);
       } catch (error: any) {
-        console.error("❌ Erreur Square:", error);
+        console.error("Erreur Square:", error);
         if (mounted) {
           onPaymentError(`Erreur: ${error.message}`);
           setIsLoading(false);
@@ -149,7 +139,6 @@ export default function SquarePayment({
       }
     };
 
-    // Délai pour s'assurer que le rendu React est terminé
     const timer = setTimeout(initSquare, 100);
 
     return () => {
@@ -162,7 +151,7 @@ export default function SquarePayment({
         afterpay.destroy();
       }
     };
-  }, [amount, currency]);
+  }, [amount, currency, afterpayTotalStr]);
 
   const handleCardPayment = async () => {
     if (!card || isSubmitting) return;
@@ -172,7 +161,7 @@ export default function SquarePayment({
       const result = await card.tokenize();
 
       if (result.status === "OK") {
-        onPaymentSuccess(result.token);
+        onPaymentSuccess(result.token, "card");
       } else {
         const errorMessage = result.errors?.length > 0
           ? result.errors[0].message
@@ -187,25 +176,30 @@ export default function SquarePayment({
     }
   };
 
-  const handleAfterpayPayment = async () => {
-    if (!afterpay) {
+  const handleAfterpayConfirm = async () => {
+    const afterpayInstance = afterpayRef.current;
+    if (!afterpayInstance) {
       onPaymentError("Afterpay n'est pas disponible");
       return;
     }
 
+    setIsTokenizingAfterpay(true);
     try {
-      const result = await afterpay.tokenize();
+      const result = await afterpayInstance.tokenize();
       if (result.status === "OK") {
-        onPaymentSuccess(result.token);
+        setShowAfterpayModal(false);
+        onPaymentSuccess(result.token, "afterpay");
       } else {
         const errorMessage = result.errors?.length > 0
           ? result.errors[0].message
           : "Erreur lors du traitement Afterpay";
         onPaymentError(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur de paiement Afterpay:", error);
-      onPaymentError("Erreur lors du traitement du paiement Afterpay");
+      onPaymentError("Erreur lors du traitement du paiement Afterpay: " + error.message);
+    } finally {
+      setIsTokenizingAfterpay(false);
     }
   };
 
@@ -221,7 +215,6 @@ export default function SquarePayment({
 
       <CardContent className="p-8">
         <div className="space-y-6">
-          {/* Montant à payer */}
           <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 rounded-xl border">
             <div className="text-center">
               <p className="text-lg font-semibold text-gray-700 mb-1">
@@ -233,7 +226,6 @@ export default function SquarePayment({
             </div>
           </div>
 
-          {/* Bouton Afterpay - en haut */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center">
               <div className="w-6 h-6 bg-black text-white font-bold text-sm rounded mr-2 flex items-center justify-center">
@@ -241,6 +233,9 @@ export default function SquarePayment({
               </div>
               Payer en 4 fois avec Afterpay
             </h3>
+            <p className="text-xs text-gray-500">
+              Des frais additionnels de {feePercentStr} % s'appliquent au paiement par Afterpay.
+            </p>
             <div
               id="afterpay-button"
               ref={afterpayContainerRef}
@@ -248,14 +243,12 @@ export default function SquarePayment({
             />
           </div>
 
-          {/* Séparateur */}
           <div className="flex items-center">
             <div className="flex-1 border-t border-gray-300"></div>
             <div className="px-4 text-gray-500 text-sm">ou</div>
             <div className="flex-1 border-t border-gray-300"></div>
           </div>
 
-          {/* Formulaire de carte Square */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center">
               <i className="fas fa-credit-card text-blue-600 mr-2"></i>
@@ -293,7 +286,6 @@ export default function SquarePayment({
             </div>
           </div>
 
-          {/* Bouton de paiement par carte */}
           <Button
             onClick={handleCardPayment}
             disabled={isProcessing || isLoading || !card || isSubmitting}
@@ -313,7 +305,6 @@ export default function SquarePayment({
             )}
           </Button>
 
-          {/* Garanties de sécurité */}
           <div className="grid grid-cols-3 gap-4 mt-6">
             <div className="text-center">
               <i className="fas fa-shield-alt text-green-600 text-2xl mb-2"></i>
@@ -330,6 +321,76 @@ export default function SquarePayment({
           </div>
         </div>
       </CardContent>
+
+      <Dialog
+        open={showAfterpayModal}
+        onOpenChange={(open) => {
+          if (!isTokenizingAfterpay) setShowAfterpayModal(open);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <div className="w-6 h-6 bg-black text-white font-bold text-sm rounded mr-2 flex items-center justify-center">
+                A
+              </div>
+              Frais Afterpay
+            </DialogTitle>
+            <DialogDescription className="text-left pt-2">
+              En sélectionnant le paiement avec Afterpay, des frais additionnels
+              de {feePercentStr} % seront appliqués à votre commande afin de compenser
+              les frais de transaction facturés par le fournisseur de paiement.
+              <br />
+              <br />
+              Le montant total incluant ces frais est affiché avant la confirmation
+              finale de votre achat.
+              <br />
+              <br />
+              En poursuivant votre commande avec ce mode de paiement, vous
+              reconnaissez et acceptez ces frais additionnels.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Sous-total</span>
+              <span className="font-medium">{baseAmount.toFixed(2)} {currency}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Frais Afterpay ({feePercentStr} %)</span>
+              <span className="font-medium">+{afterpayFeeStr} {currency}</span>
+            </div>
+            <div className="border-t border-gray-300 pt-2 flex justify-between text-base">
+              <span className="font-semibold text-gray-800">Total à payer</span>
+              <span className="font-bold text-primary">{afterpayTotalStr} {currency}</span>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowAfterpayModal(false)}
+              disabled={isTokenizingAfterpay}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleAfterpayConfirm}
+              disabled={isTokenizingAfterpay}
+              className="bg-black hover:bg-gray-800 text-white"
+            >
+              {isTokenizingAfterpay ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Traitement...
+                </>
+              ) : (
+                <>Accepter et payer {afterpayTotalStr} {currency}</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

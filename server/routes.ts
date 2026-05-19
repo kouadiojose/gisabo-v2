@@ -2,6 +2,7 @@ import express, { type Express, Request, Response, NextFunction } from "express"
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertTransferSchema, insertOrderSchema, insertOrderItemSchema, insertExchangeRateSchema, insertServiceSchema, insertProductSchema, insertAdminSchema } from "@shared/schema";
+import { applyAfterpayFee } from "@shared/payment-fees";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import multer from "multer";
@@ -704,8 +705,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", authenticateToken, async (req: any, res) => {
     try {
-      const { items, customerInfo, shippingAddress, paymentToken } = req.body;
-      
+      const { items, customerInfo, shippingAddress, paymentToken, paymentMethod } = req.body;
+
       // Use customerInfo if provided, otherwise fallback to shippingAddress for backward compatibility
       const addressData = customerInfo || shippingAddress || {
         firstName: 'Non spécifié',
@@ -713,7 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone: 'Non spécifié',
         note: ''
       };
-      
+
       // Calculate total
       let total = 0;
       for (const item of items) {
@@ -721,10 +722,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!product) {
           return res.status(400).json({ message: `Product ${item.productId} not found` });
         }
-        
+
         // Use custom price if provided, otherwise use product price
         const itemPrice = item.customPrice ? parseFloat(item.customPrice.toString()) : parseFloat(product.price);
         total += itemPrice * item.quantity;
+      }
+
+      // Apply Afterpay processing fee server-side so the client cannot bypass it
+      if (paymentMethod === "afterpay") {
+        total = applyAfterpayFee(total);
       }
 
       // Create order first

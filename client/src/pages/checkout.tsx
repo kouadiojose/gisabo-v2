@@ -107,7 +107,7 @@ export default function Checkout() {
     setCurrentStep('payment');
   };
 
-  const handlePaymentSuccess = (paymentToken: string) => {
+  const handlePaymentSuccess = (paymentToken: string, paymentMethod: "card" | "afterpay") => {
     const orderData = {
       items: cart.map(item => ({
         productId: item.productId,
@@ -117,8 +117,7 @@ export default function Checkout() {
       customerInfo,
     };
 
-    // D'abord créer la commande, puis traiter le paiement
-    createOrderMutation.mutate({ ...orderData, paymentToken });
+    createOrderMutation.mutate({ ...orderData, paymentToken, paymentMethod });
   };
 
   const handlePaymentError = (error: string) => {
