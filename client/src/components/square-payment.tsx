@@ -113,17 +113,8 @@ export default function SquarePayment({
 
           await new Promise(resolve => setTimeout(resolve, 200));
 
-          if (document.getElementById('afterpay-button')) {
-            await afterpayInstance.attach('#afterpay-button');
-
-            const afterpayButton = document.getElementById('afterpay-button');
-            if (afterpayButton) {
-              afterpayButton.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setShowAfterpayModal(true);
-              }, true);
-            }
+          if (document.getElementById('afterpay-button-hidden')) {
+            await afterpayInstance.attach('#afterpay-button-hidden');
           }
         } catch (afterpayError: any) {
           // Afterpay not available for this configuration
@@ -236,10 +227,19 @@ export default function SquarePayment({
             <p className="text-xs text-gray-500">
               Des frais additionnels de {feePercentStr} % s'appliquent au paiement par Afterpay.
             </p>
+            <button
+              type="button"
+              onClick={() => setShowAfterpayModal(true)}
+              disabled={isLoading || !afterpay || isProcessing || isSubmitting}
+              className="w-full bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center transition-colors min-h-[50px]"
+            >
+              <span className="mr-2">Buy now with</span>
+              <span className="font-bold">Clearpay</span>
+            </button>
             <div
-              id="afterpay-button"
+              id="afterpay-button-hidden"
               ref={afterpayContainerRef}
-              className="min-h-[50px]"
+              style={{ display: 'none' }}
             />
           </div>
 
