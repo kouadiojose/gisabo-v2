@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,14 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,8 +22,7 @@ import { ExchangeRate } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
-import SquarePayment, { SquarePaymentHandle } from "@/components/square-payment";
-import { AFTERPAY_FEE_RATE, applyAfterpayFee } from "@shared/payment-fees";
+import SquarePayment from "@/components/square-payment";
 
 const countries = [
   { code: "BI", name: "Burundi", currency: "BIF", flag: "🇧🇮" },
@@ -51,9 +42,6 @@ export default function Gisabo() {
 
   const [step, setStep] = useState(1); // 1: Formulaire, 2: Récapitulatif, 3: Paiement
   const [transferData, setTransferData] = useState<any>(null);
-  const [showAfterpayModal, setShowAfterpayModal] = useState(false);
-  const [isAfterpayProcessing, setIsAfterpayProcessing] = useState(false);
-  const squarePaymentRef = useRef<SquarePaymentHandle>(null);
   const [formData, setFormData] = useState({
     // Détails du bénéficiaire
     recipientFirstName: "",
@@ -169,9 +157,11 @@ export default function Gisabo() {
     mutationFn: async ({
       transferId,
       paymentToken,
+      paymentMethod,
     }: {
       transferId: number;
       paymentToken: string;
+      paymentMethod: "card" | "afterpay";
     }) => {
       const token = getAuthToken();
       if (!token) {
@@ -184,7 +174,7 @@ export default function Gisabo() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ paymentToken }),
+        body: JSON.stringify({ paymentToken, paymentMethod }),
       });
 
       if (!response.ok) {
@@ -242,20 +232,6 @@ export default function Gisabo() {
   };
 
   const calculation = calculateTransfer();
-
-  const afterpayBaseAmount = parseFloat(calculation.total) || 0;
-  const afterpayFee = Math.round(afterpayBaseAmount * AFTERPAY_FEE_RATE * 100) / 100;
-  const afterpayTotal = applyAfterpayFee(afterpayBaseAmount);
-  const afterpayFeePercentStr = (AFTERPAY_FEE_RATE * 100).toFixed(1).replace(".", ",");
-
-  const handleAfterpayConfirm = async () => {
-    setIsAfterpayProcessing(true);
-    try {
-      await squarePaymentRef.current?.tokenizeAfterpay();
-    } finally {
-      setShowAfterpayModal(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1164,18 +1140,16 @@ export default function Gisabo() {
 
             {/* Composant de paiement Square réel */}
             <SquarePayment
-              ref={squarePaymentRef}
               amount={calculation.total}
               currency={formData.sendingCurrency}
-              onAfterpayClick={() => setShowAfterpayModal(true)}
-              onPaymentSuccess={(token) => {
+              onPaymentSuccess={(token, paymentMethod) => {
                 processPaymentMutation.mutate({
                   transferId: transferData.id,
                   paymentToken: token,
+                  paymentMethod,
                 });
               }}
               onPaymentError={(error) => {
-                setIsAfterpayProcessing(false);
                 toast({
                   title: t("gisabo.paymentError"),
                   description: error,
@@ -1183,7 +1157,6 @@ export default function Gisabo() {
                 });
               }}
               isProcessing={processPaymentMutation.isPending}
-              isAfterpayProcessing={isAfterpayProcessing}
             />
 
             {/* Support client */}
@@ -1218,84 +1191,6 @@ export default function Gisabo() {
           </div>
         )}
       </div>
-
-      <Dialog
-        open={showAfterpayModal}
-        onOpenChange={(open) => {
-          if (!isAfterpayProcessing) setShowAfterpayModal(open);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <div className="w-6 h-6 bg-black text-white font-bold text-sm rounded mr-2 flex items-center justify-center">
-                A
-              </div>
-              Frais Afterpay
-            </DialogTitle>
-            <DialogDescription className="text-left pt-2">
-              En sélectionnant le paiement avec Afterpay, des frais additionnels
-              de {afterpayFeePercentStr} % seront appliqués à votre commande afin
-              de compenser les frais de transaction facturés par le fournisseur
-              de paiement.
-              <br />
-              <br />
-              Le montant total incluant ces frais est affiché ci-dessous. En
-              poursuivant, vous reconnaissez et acceptez ces frais additionnels.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Sous-total</span>
-              <span className="font-medium">
-                {afterpayBaseAmount.toFixed(2)} {formData.sendingCurrency}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">
-                Frais Afterpay ({afterpayFeePercentStr} %)
-              </span>
-              <span className="font-medium">
-                +{afterpayFee.toFixed(2)} {formData.sendingCurrency}
-              </span>
-            </div>
-            <div className="border-t border-gray-300 pt-2 flex justify-between text-base">
-              <span className="font-semibold text-gray-800">Total à payer</span>
-              <span className="font-bold text-primary">
-                {afterpayTotal.toFixed(2)} {formData.sendingCurrency}
-              </span>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowAfterpayModal(false)}
-              disabled={isAfterpayProcessing}
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={handleAfterpayConfirm}
-              disabled={isAfterpayProcessing}
-              className="bg-black hover:bg-gray-800 text-white"
-            >
-              {isAfterpayProcessing ? (
-                <>
-                  <i className="fas fa-spinner fa-spin mr-2"></i>
-                  Traitement...
-                </>
-              ) : (
-                <>
-                  Accepter et payer {afterpayTotal.toFixed(2)}{" "}
-                  {formData.sendingCurrency}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Footer />
     </div>

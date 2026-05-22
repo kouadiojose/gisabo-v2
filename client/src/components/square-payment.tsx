@@ -1,20 +1,14 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { applyAfterpayFee } from "@shared/payment-fees";
-
-export interface SquarePaymentHandle {
-  tokenizeAfterpay: () => Promise<void>;
-}
+import { AFTERPAY_FEE_RATE, applyAfterpayFee } from "@shared/payment-fees";
 
 interface SquarePaymentProps {
   amount: string;
   currency: string;
   onPaymentSuccess: (token: string, paymentMethod: "card" | "afterpay") => void;
   onPaymentError: (error: string) => void;
-  onAfterpayClick: () => void;
   isProcessing: boolean;
-  isAfterpayProcessing?: boolean;
 }
 
 declare global {
@@ -23,28 +17,26 @@ declare global {
   }
 }
 
-const SquarePayment = forwardRef<SquarePaymentHandle, SquarePaymentProps>(function SquarePayment(
-  {
-    amount,
-    currency,
-    onPaymentSuccess,
-    onPaymentError,
-    onAfterpayClick,
-    isProcessing,
-    isAfterpayProcessing,
-  },
-  ref,
-) {
+export default function SquarePayment({
+  amount,
+  currency,
+  onPaymentSuccess,
+  onPaymentError,
+  isProcessing,
+}: SquarePaymentProps) {
   const [card, setCard] = useState<any>(null);
   const [afterpay, setAfterpay] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cardContainerRef = useRef<HTMLDivElement>(null);
   const afterpayContainerRef = useRef<HTMLDivElement>(null);
-  const afterpayRef = useRef<any>(null);
 
   const baseAmount = parseFloat(amount) || 0;
-  const afterpayTotalStr = applyAfterpayFee(baseAmount).toFixed(2);
+  const afterpayFeeAmount = Math.round(baseAmount * AFTERPAY_FEE_RATE * 100) / 100;
+  const afterpayTotal = applyAfterpayFee(baseAmount);
+  const afterpayTotalStr = afterpayTotal.toFixed(2);
+  const afterpayFeeStr = afterpayFeeAmount.toFixed(2);
+  const feePercentStr = (AFTERPAY_FEE_RATE * 100).toFixed(1).replace(".", ",");
 
   useEffect(() => {
     let mounted = true;
@@ -104,12 +96,30 @@ const SquarePayment = forwardRef<SquarePaymentHandle, SquarePaymentProps>(functi
 
           const afterpayInstance = await paymentsInstance.afterpayClearpay(paymentRequest);
           setAfterpay(afterpayInstance);
-          afterpayRef.current = afterpayInstance;
 
           await new Promise(resolve => setTimeout(resolve, 200));
 
-          if (document.getElementById('afterpay-button-hidden')) {
-            await afterpayInstance.attach('#afterpay-button-hidden');
+          const afterpayButton = document.getElementById('afterpay-button');
+          if (afterpayButton) {
+            await afterpayInstance.attach('#afterpay-button');
+
+            afterpayButton.addEventListener('click', async (event) => {
+              event.preventDefault();
+              try {
+                const result = await afterpayInstance.tokenize();
+                if (result.status === "OK") {
+                  onPaymentSuccess(result.token, "afterpay");
+                } else {
+                  const errorMessage = result.errors?.length > 0
+                    ? result.errors[0].message
+                    : "Erreur lors du traitement Afterpay";
+                  onPaymentError(errorMessage);
+                }
+              } catch (afterpayErr: any) {
+                console.error("Erreur de paiement Afterpay:", afterpayErr);
+                onPaymentError("Erreur lors du traitement du paiement Afterpay: " + afterpayErr.message);
+              }
+            });
           }
         } catch (afterpayError: any) {
           // Afterpay not available for this configuration
@@ -162,30 +172,6 @@ const SquarePayment = forwardRef<SquarePaymentHandle, SquarePaymentProps>(functi
     }
   };
 
-  useImperativeHandle(ref, () => ({
-    tokenizeAfterpay: async () => {
-      const afterpayInstance = afterpayRef.current;
-      if (!afterpayInstance) {
-        onPaymentError("Afterpay n'est pas disponible");
-        return;
-      }
-      try {
-        const result = await afterpayInstance.tokenize();
-        if (result.status === "OK") {
-          onPaymentSuccess(result.token, "afterpay");
-        } else {
-          const errorMessage = result.errors?.length > 0
-            ? result.errors[0].message
-            : "Erreur lors du traitement Afterpay";
-          onPaymentError(errorMessage);
-        }
-      } catch (error: any) {
-        console.error("Erreur de paiement Afterpay:", error);
-        onPaymentError("Erreur lors du traitement du paiement Afterpay: " + error.message);
-      }
-    },
-  }));
-
   return (
     <Card className="shadow-lg">
       <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
@@ -201,7 +187,7 @@ const SquarePayment = forwardRef<SquarePaymentHandle, SquarePaymentProps>(functi
           <div className="bg-gradient-to-r from-primary/10 to-secondary/10 p-4 rounded-xl border">
             <div className="text-center">
               <p className="text-lg font-semibold text-gray-700 mb-1">
-                Montant à payer
+                Montant à payer par carte
               </p>
               <p className="text-3xl font-bold text-primary">
                 {amount} {currency}
@@ -216,28 +202,37 @@ const SquarePayment = forwardRef<SquarePaymentHandle, SquarePaymentProps>(functi
               </div>
               Payer en 4 fois avec Afterpay
             </h3>
-            <button
-              type="button"
-              onClick={onAfterpayClick}
-              disabled={isLoading || !afterpay || isProcessing || isSubmitting || isAfterpayProcessing}
-              className="w-full bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center transition-colors min-h-[50px]"
-            >
-              {isAfterpayProcessing ? (
-                <>
-                  <i className="fas fa-spinner fa-spin mr-2"></i>
-                  Traitement Afterpay...
-                </>
-              ) : (
-                <>
-                  <span className="mr-2">Buy now with</span>
-                  <span className="font-bold">Clearpay</span>
-                </>
-              )}
-            </button>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2 text-sm">
+              <div className="flex items-start">
+                <i className="fas fa-info-circle text-amber-600 mt-0.5 mr-2"></i>
+                <p className="text-amber-900 font-medium">
+                  Des frais additionnels de {feePercentStr} % s'appliquent au paiement
+                  par Afterpay.
+                </p>
+              </div>
+              <div className="pl-6 space-y-1 text-gray-700">
+                <div className="flex justify-between">
+                  <span>Sous-total</span>
+                  <span className="font-medium">{baseAmount.toFixed(2)} {currency}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Frais Afterpay ({feePercentStr} %)</span>
+                  <span className="font-medium">+{afterpayFeeStr} {currency}</span>
+                </div>
+                <div className="flex justify-between border-t border-amber-200 pt-1 mt-1">
+                  <span className="font-semibold text-gray-900">Total Afterpay</span>
+                  <span className="font-bold text-amber-900">
+                    {afterpayTotalStr} {currency}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div
-              id="afterpay-button-hidden"
+              id="afterpay-button"
               ref={afterpayContainerRef}
-              style={{ display: 'none' }}
+              className="min-h-[50px]"
             />
           </div>
 
@@ -286,7 +281,7 @@ const SquarePayment = forwardRef<SquarePaymentHandle, SquarePaymentProps>(functi
 
           <Button
             onClick={handleCardPayment}
-            disabled={isProcessing || isLoading || !card || isSubmitting || isAfterpayProcessing}
+            disabled={isProcessing || isLoading || !card || isSubmitting}
             size="lg"
             className="w-full bg-green-600 hover:bg-green-700 text-white py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
           >
@@ -321,6 +316,4 @@ const SquarePayment = forwardRef<SquarePaymentHandle, SquarePaymentProps>(functi
       </CardContent>
     </Card>
   );
-});
-
-export default SquarePayment;
+}

@@ -438,22 +438,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/transfers/:id/pay", authenticateToken, async (req: any, res) => {
     try {
       const transferId = parseInt(req.params.id);
-      const { paymentToken } = req.body;
+      const { paymentToken, paymentMethod } = req.body;
 
       // 🔒 VALIDATION RIGOUREUSE DES DONNÉES D'ENTRÉE
       if (!transferId || isNaN(transferId)) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "ID de transfert invalide",
-          type: "validation_error" 
+          type: "validation_error"
         });
       }
 
       if (!paymentToken || typeof paymentToken !== 'string') {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Token de paiement manquant ou invalide",
-          type: "validation_error" 
+          type: "validation_error"
         });
       }
+
+      const normalizedPaymentMethod: "card" | "afterpay" =
+        paymentMethod === "afterpay" ? "afterpay" : "card";
 
       // 🔒 VÉRIFICATION DE L'EXISTENCE ET DE LA PROPRIÉTÉ DU TRANSFERT
       const transfer = await storage.getTransfer(transferId);
@@ -497,11 +500,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const idempotencyKey = `transfer_${transferId}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
       // 🔒 CONVERSION ET VALIDATION DU MONTANT
-      const amountInCents = Math.round(parseFloat(transfer.amount) * 100);
+      // Apply Afterpay processing fee server-side so the client cannot bypass it
+      const transferAmount = parseFloat(transfer.amount);
+      const chargeAmount = normalizedPaymentMethod === "afterpay"
+        ? applyAfterpayFee(transferAmount)
+        : transferAmount;
+      const amountInCents = Math.round(chargeAmount * 100);
       if (amountInCents <= 0 || amountInCents > 100000000) { // Max 1M USD/CAD/EUR
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Montant de transfert invalide",
-          type: "amount_validation_error" 
+          type: "amount_validation_error"
         });
       }
 
