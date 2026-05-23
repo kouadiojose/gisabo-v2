@@ -2,6 +2,7 @@ import express, { type Express, Request, Response, NextFunction } from "express"
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertTransferSchema, insertOrderSchema, insertOrderItemSchema, insertExchangeRateSchema, insertServiceSchema, insertProductSchema, insertAdminSchema } from "@shared/schema";
+import { applyAfterpayFee } from "@shared/payment-fees";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import multer from "multer";
@@ -437,22 +438,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/transfers/:id/pay", authenticateToken, async (req: any, res) => {
     try {
       const transferId = parseInt(req.params.id);
-      const { paymentToken } = req.body;
+      const { paymentToken, paymentMethod } = req.body;
 
       // 🔒 VALIDATION RIGOUREUSE DES DONNÉES D'ENTRÉE
       if (!transferId || isNaN(transferId)) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "ID de transfert invalide",
-          type: "validation_error" 
+          type: "validation_error"
         });
       }
 
       if (!paymentToken || typeof paymentToken !== 'string') {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Token de paiement manquant ou invalide",
-          type: "validation_error" 
+          type: "validation_error"
         });
       }
+
+      const normalizedPaymentMethod: "card" | "afterpay" =
+        paymentMethod === "afterpay" ? "afterpay" : "card";
 
       // 🔒 VÉRIFICATION DE L'EXISTENCE ET DE LA PROPRIÉTÉ DU TRANSFERT
       const transfer = await storage.getTransfer(transferId);
@@ -496,11 +500,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const idempotencyKey = `transfer_${transferId}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
       // 🔒 CONVERSION ET VALIDATION DU MONTANT
-      const amountInCents = Math.round(parseFloat(transfer.amount) * 100);
+      // Apply Afterpay processing fee server-side so the client cannot bypass it
+      const transferAmount = parseFloat(transfer.amount);
+      const chargeAmount = normalizedPaymentMethod === "afterpay"
+        ? applyAfterpayFee(transferAmount)
+        : transferAmount;
+      const amountInCents = Math.round(chargeAmount * 100);
       if (amountInCents <= 0 || amountInCents > 100000000) { // Max 1M USD/CAD/EUR
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: "Montant de transfert invalide",
-          type: "amount_validation_error" 
+          type: "amount_validation_error"
         });
       }
 
@@ -704,8 +713,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", authenticateToken, async (req: any, res) => {
     try {
-      const { items, customerInfo, shippingAddress, paymentToken } = req.body;
-      
+      const { items, customerInfo, shippingAddress, paymentToken, paymentMethod } = req.body;
+
       // Use customerInfo if provided, otherwise fallback to shippingAddress for backward compatibility
       const addressData = customerInfo || shippingAddress || {
         firstName: 'Non spécifié',
@@ -713,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone: 'Non spécifié',
         note: ''
       };
-      
+
       // Calculate total
       let total = 0;
       for (const item of items) {
@@ -721,10 +730,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!product) {
           return res.status(400).json({ message: `Product ${item.productId} not found` });
         }
-        
+
         // Use custom price if provided, otherwise use product price
         const itemPrice = item.customPrice ? parseFloat(item.customPrice.toString()) : parseFloat(product.price);
         total += itemPrice * item.quantity;
+      }
+
+      // Apply Afterpay processing fee server-side so the client cannot bypass it
+      if (paymentMethod === "afterpay") {
+        total = applyAfterpayFee(total);
       }
 
       // Create order first

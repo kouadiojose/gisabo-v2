@@ -157,9 +157,11 @@ export default function Gisabo() {
     mutationFn: async ({
       transferId,
       paymentToken,
+      paymentMethod,
     }: {
       transferId: number;
       paymentToken: string;
+      paymentMethod: "card" | "afterpay";
     }) => {
       const token = getAuthToken();
       if (!token) {
@@ -172,7 +174,7 @@ export default function Gisabo() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ paymentToken }),
+        body: JSON.stringify({ paymentToken, paymentMethod }),
       });
 
       if (!response.ok) {
@@ -1140,10 +1142,11 @@ export default function Gisabo() {
             <SquarePayment
               amount={calculation.total}
               currency={formData.sendingCurrency}
-              onPaymentSuccess={(token) => {
+              onPaymentSuccess={(token, paymentMethod) => {
                 processPaymentMutation.mutate({
                   transferId: transferData.id,
                   paymentToken: token,
+                  paymentMethod,
                 });
               }}
               onPaymentError={(error) => {
