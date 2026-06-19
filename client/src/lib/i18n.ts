@@ -261,6 +261,91 @@ export const translations = {
       createAccount: "Créer un compte",
       contactUs: "Nous contacter"
     },
+    contact: {
+      title: "Contactez ",
+      titleHighlight: "GISABO",
+      subtitle: "Notre équipe est à votre écoute pour répondre à toutes vos questions sur les transferts d'argent et le marketplace.",
+      contactMethodsTitle: "Nos moyens de contact",
+      contactMethodsSubtitle: "Choisissez le canal qui vous convient le mieux",
+      methods: {
+        email: {
+          title: "Courriel",
+          description: "Écrivez-nous, nous répondons sous 24 heures.",
+          action: "Contacter"
+        },
+        phone: {
+          title: "Téléphone",
+          description: "Appelez-nous pendant nos heures d'ouverture."
+        },
+        chat: {
+          title: "Clavardage",
+          description: "Discutez en direct avec notre équipe.",
+          info: "Disponible en ligne"
+        },
+        address: {
+          title: "Adresse",
+          description: "Venez nous rencontrer à nos bureaux.",
+          info: "9, rue Amherst, Gatineau, QC"
+        }
+      },
+      toast: {
+        title: "Message envoyé",
+        description: "Merci de nous avoir contactés. Nous vous répondrons dans les plus brefs délais."
+      },
+      form: {
+        title: "Envoyez-nous un message",
+        subtitle: "Remplissez le formulaire ci-dessous et nous vous répondrons rapidement.",
+        firstName: "Prénom",
+        lastName: "Nom",
+        email: "Courriel",
+        phone: "Téléphone",
+        subject: "Sujet",
+        selectSubject: "Sélectionnez un sujet",
+        urgency: "Niveau d'urgence",
+        message: "Message",
+        messagePlaceholder: "Décrivez votre demande en détail...",
+        sending: "Envoi en cours...",
+        send: "Envoyer le message",
+        subjects: {
+          transfer: "Transfert d'argent",
+          marketplace: "Marketplace",
+          account: "Mon compte",
+          payment: "Paiement",
+          technical: "Problème technique",
+          partnership: "Partenariat",
+          other: "Autre"
+        },
+        urgencyLevels: {
+          low: "Faible",
+          normal: "Normale",
+          high: "Élevée",
+          urgent: "Urgente"
+        }
+      },
+      businessHours: {
+        title: "Heures d'ouverture",
+        monday: "Lundi - Vendredi",
+        saturday: "Samedi",
+        sunday: "Dimanche",
+        emergency: "Support d'urgence disponible 24h/24 et 7j/7 pour les questions critiques."
+      },
+      faq: {
+        title: "Questions fréquentes",
+        transfer: "Comment effectuer un transfert d'argent ?",
+        fees: "Quels sont les frais appliqués ?",
+        tracking: "Comment suivre mon transfert ?",
+        orderIssue: "Que faire en cas de problème avec une commande ?",
+        createAccount: "Comment créer un compte ?"
+      },
+      emergency: {
+        title: "Contact d'urgence",
+        description: "Pour toute situation urgente nécessitant une assistance immédiate, contactez-nous directement."
+      },
+      offices: {
+        title: "Nos bureaux",
+        subtitle: "Retrouvez-nous à proximité de chez vous"
+      }
+    },
   },
   en: {
     common: {
@@ -505,6 +590,91 @@ export const translations = {
       ctaSubtitle: "Join thousands of users who trust GISABO",
       createAccount: "Create Account",
       contactUs: "Contact Us"
+    },
+    contact: {
+      title: "Contact ",
+      titleHighlight: "GISABO",
+      subtitle: "Our team is here to answer all your questions about money transfers and the marketplace.",
+      contactMethodsTitle: "Ways to reach us",
+      contactMethodsSubtitle: "Choose the channel that works best for you",
+      methods: {
+        email: {
+          title: "Email",
+          description: "Write to us, we reply within 24 hours.",
+          action: "Contact"
+        },
+        phone: {
+          title: "Phone",
+          description: "Call us during business hours."
+        },
+        chat: {
+          title: "Live chat",
+          description: "Chat live with our team.",
+          info: "Available online"
+        },
+        address: {
+          title: "Address",
+          description: "Come meet us at our offices.",
+          info: "9 Amherst St, Gatineau, QC"
+        }
+      },
+      toast: {
+        title: "Message sent",
+        description: "Thank you for reaching out. We will get back to you as soon as possible."
+      },
+      form: {
+        title: "Send us a message",
+        subtitle: "Fill out the form below and we'll get back to you quickly.",
+        firstName: "First name",
+        lastName: "Last name",
+        email: "Email",
+        phone: "Phone",
+        subject: "Subject",
+        selectSubject: "Select a subject",
+        urgency: "Urgency level",
+        message: "Message",
+        messagePlaceholder: "Describe your request in detail...",
+        sending: "Sending...",
+        send: "Send message",
+        subjects: {
+          transfer: "Money transfer",
+          marketplace: "Marketplace",
+          account: "My account",
+          payment: "Payment",
+          technical: "Technical issue",
+          partnership: "Partnership",
+          other: "Other"
+        },
+        urgencyLevels: {
+          low: "Low",
+          normal: "Normal",
+          high: "High",
+          urgent: "Urgent"
+        }
+      },
+      businessHours: {
+        title: "Business hours",
+        monday: "Monday - Friday",
+        saturday: "Saturday",
+        sunday: "Sunday",
+        emergency: "Emergency support available 24/7 for critical matters."
+      },
+      faq: {
+        title: "Frequently asked questions",
+        transfer: "How do I make a money transfer?",
+        fees: "What fees apply?",
+        tracking: "How do I track my transfer?",
+        orderIssue: "What should I do if there's an issue with an order?",
+        createAccount: "How do I create an account?"
+      },
+      emergency: {
+        title: "Emergency contact",
+        description: "For any urgent situation requiring immediate assistance, contact us directly."
+      },
+      offices: {
+        title: "Our offices",
+        subtitle: "Find us near you"
+      }
     },
   },
 };
