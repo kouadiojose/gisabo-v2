@@ -16,9 +16,49 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Email de l'administrateur (à configurer selon vos besoins)
-const ADMIN_EMAIL = "gisabonet@gmail.com";
 const FROM_EMAIL = "noreply@gisabogroup.ca";
+
+// Listes de diffusion interne pour les notifications de transfert.
+// Le destinataire dépend du mode de livraison choisi par l'expéditeur.
+const TRANSFER_NOTIFICATION_EMAILS = {
+    mobileMoney: [
+        "gisabonet@gmail.com",
+        "yeoyedjande@gmail.com",
+        "montnini@yahoo.fr",
+        "gisabotransfert1@gmail.com",
+        "kouadiojose@gmail.com",
+        "niyungekonadege@gmail.com",
+    ],
+    bankAccount: [
+        "gisabonet@gmail.com",
+        "yeoyedjande@gmail.com",
+        "niyungekonadege@gmail.com",
+        "gisabotransfert1@gmail.com",
+        "montnini@yahoo.fr",
+        "kouadiojose@gmail.com",
+    ],
+};
+
+// Liste de diffusion interne pour les notifications d'achat de produits.
+const ORDER_NOTIFICATION_EMAILS = [
+    "gisabonet@gmail.com",
+    "yeoyedjande@gmail.com",
+    "montnini@yahoo.fr",
+    "gisabotransfert1@gmail.com",
+    "kouadiojose@gmail.com",
+    "niyungekonadege@gmail.com",
+];
+
+// Sélectionne la liste de diffusion en fonction du mode de livraison.
+// Tolère les valeurs brutes ("mobile"/"bank") comme traduites
+// ("Mobile Money"/"Compte bancaire"). Par défaut : Mobile Money.
+function getTransferNotificationEmails(deliveryMethod?: string): string[] {
+    const method = (deliveryMethod || "").toLowerCase();
+    if (method.includes("bank") || method.includes("banc")) {
+        return TRANSFER_NOTIFICATION_EMAILS.bankAccount;
+    }
+    return TRANSFER_NOTIFICATION_EMAILS.mobileMoney;
+}
 
 export async function sendTransferConfirmationEmail(
     transfer: Transfer,
@@ -261,10 +301,10 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
             html: emailHTML,
         });
 
-        // Envoi d'une copie à l'administrateur
+        // Envoi d'une copie à l'équipe interne (liste selon le mode de livraison)
         await transporter.sendMail({
             from: `TRANSFERT GISABO <${FROM_EMAIL}>`,
-            to: [ADMIN_EMAIL],
+            to: getTransferNotificationEmails(transfer.deliveryMethod),
             subject: `Nouveau transfert - ${refNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVEAU TRANSFERT EFFECTUÉ\n\n${emailText}`,
             html: emailHTML,
@@ -351,8 +391,11 @@ export async function sendOrderConfirmationEmail(
         
         <div class="content">
             <p><strong>Cher(e) ${user.firstName} ${user.lastName},</strong></p>
-            <p>Merci pour votre achat sur Gisabo. Votre commande a été confirmée et sera traitée dans les plus brefs délais.</p>
-            
+            <p>Votre paiement a été effectué.</p>
+            <div class="total-highlight" style="background:#e8f5e8; color:#2E8B57;">
+                📞 Merci de nous contacter au +257 79 48 81 79 pour le retrait de vos produits.
+            </div>
+
             <div class="section">
                 <h3>📦 Détails de la commande</h3>
                 <div class="info-row">
@@ -433,7 +476,8 @@ export async function sendOrderConfirmationEmail(
         const emailText = `
 Cher(e) ${user.firstName} ${user.lastName},
 
-Merci pour votre achat sur Gisabo Marketplace. Votre commande a été confirmée et sera traitée dans les plus brefs délais.
+Votre paiement a été effectué.
+Merci de nous contacter au +257 79 48 81 79 pour le retrait de vos produits.
 
 DÉTAILS DE LA COMMANDE
 Numéro de commande: ${orderNumber}
@@ -467,10 +511,10 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
             html: emailHTML,
         });
 
-        // Envoi d'une copie à l'administrateur
+        // Envoi d'une copie à l'équipe interne
         await transporter.sendMail({
-            from: FROM_EMAIL,
-            to: [ADMIN_EMAIL],
+            from: `ACHAT GISABO <${FROM_EMAIL}>`,
+            to: ORDER_NOTIFICATION_EMAILS,
             subject: `Nouvelle commande - ${orderNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVELLE COMMANDE EFFECTUÉE\n\n${emailText}`,
             html: emailHTML,
