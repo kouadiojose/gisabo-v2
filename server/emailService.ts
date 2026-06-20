@@ -60,6 +60,22 @@ function getTransferNotificationEmails(deliveryMethod?: string): string[] {
     return TRANSFER_NOTIFICATION_EMAILS.mobileMoney;
 }
 
+// Affiche le mode de livraison en clair, quelle que soit la valeur stockée
+// (brute "mobile"/"bank"/"cash" ou déjà traduite).
+function formatDeliveryMethod(deliveryMethod?: string): string {
+    const method = (deliveryMethod || "").toLowerCase();
+    if (method.includes("bank") || method.includes("banc")) {
+        return "Compte bancaire";
+    }
+    if (method.includes("cash") || method.includes("espèce") || method.includes("especes")) {
+        return "Cash";
+    }
+    if (method.includes("mobile")) {
+        return "Mobile money";
+    }
+    return deliveryMethod || "Mobile money";
+}
+
 export async function sendTransferConfirmationEmail(
     transfer: Transfer,
     user: User,
@@ -177,7 +193,7 @@ export async function sendTransferConfirmationEmail(
                 }
                 <div class="info-row">
                     <span class="label">Mode livraison:</span>
-                    <span>${transfer.deliveryMethod}</span>
+                    <span>${formatDeliveryMethod(transfer.deliveryMethod)}</span>
                 </div>
                 ${
                     transfer.bankName
@@ -282,7 +298,7 @@ INFORMATIONS DE TRANSACTION
 Numéro REF: ${refNumber}
 ${amountInfo}
 ${rateInfo}
-Mode livraison: ${transfer.deliveryMethod}
+Mode livraison: ${formatDeliveryMethod(transfer.deliveryMethod)}
 ${transfer.bankName ? `Nom de la banque: ${transfer.bankName}` : ""}
 ${transfer.accountNumber ? `Numéro de compte: ${transfer.accountNumber}` : ""}
 ID Paiement Square: ${paymentId}
