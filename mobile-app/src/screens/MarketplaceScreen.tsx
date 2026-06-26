@@ -11,8 +11,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import apiService from '../services/api';
-import { payWithCard } from '../services/payment';
-import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { useCart } from '../contexts/CartContext';
 
 // L'API renvoie des produits déjà localisés (champs `name` / `description`
 // selon la langue), et `price` provient d'une colonne numeric (donc string).
@@ -41,9 +41,8 @@ export default function MarketplaceScreen() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<{ [key: number]: number }>({});
-  const [checkingOut, setCheckingOut] = useState(false);
-  const { user } = useAuth();
+  const { addItem, itemCount } = useCart();
+  const navigation = useNavigation<any>();
 
   useEffect(() => {
     fetchData();
@@ -72,68 +71,19 @@ export default function MarketplaceScreen() {
     setRefreshing(false);
   };
 
-  const addToCart = (productId: number) => {
-    setCart(prev => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + 1
-    }));
+  const addToCart = (product: Product) => {
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      currency: product.currency,
+      imageUrl: product.imageUrl,
+    });
   };
 
   const filteredProducts = selectedCategory
     ? products.filter(product => product.categoryId === selectedCategory)
     : products;
-
-  const cartItemCount = Object.values(cart).reduce((sum, count) => sum + count, 0);
-
-  const cartTotal = Object.entries(cart).reduce((sum, [id, qty]) => {
-    const product = products.find((p) => p.id === Number(id));
-    return product ? sum + Number(product.price) * qty : sum;
-  }, 0);
-
-  const handleCheckout = () => {
-    if (cartItemCount === 0 || checkingOut) return;
-    Alert.alert(
-      'Finaliser la commande',
-      `Total : ${cartTotal.toFixed(2)} CAD\nProcéder au paiement par carte ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Payer', onPress: processCheckout },
-      ],
-    );
-  };
-
-  const processCheckout = async () => {
-    const items = Object.entries(cart).map(([id, qty]) => ({
-      productId: Number(id),
-      quantity: qty,
-    }));
-
-    setCheckingOut(true);
-    try {
-      // Le serveur règle le paiement PUIS crée la commande (atomique) à partir
-      // du nonce de carte obtenu via la feuille native Square.
-      await payWithCard(async (nonce) => {
-        await apiService.createOrder({
-          items,
-          customerInfo: {
-            firstName: user?.firstName,
-            lastName: user?.lastName,
-            phone: user?.phone,
-          },
-          paymentToken: nonce,
-          paymentMethod: 'card',
-        });
-      });
-      Alert.alert('Commande payée', 'Merci ! Votre commande a été enregistrée.');
-      setCart({});
-    } catch (error: any) {
-      if (error?.message !== 'CANCELLED') {
-        Alert.alert('Erreur', error?.message || 'Le paiement a échoué');
-      }
-    } finally {
-      setCheckingOut(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -141,14 +91,13 @@ export default function MarketplaceScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Marketplace</Text>
         <Text style={styles.subtitle}>Produits authentiques d'Afrique</Text>
-        {cartItemCount > 0 && (
+        {itemCount > 0 && (
           <TouchableOpacity
             style={styles.cartButton}
-            onPress={handleCheckout}
-            disabled={checkingOut}
+            onPress={() => navigation.navigate('Cart')}
           >
-            <Text style={styles.cartIcon}>{checkingOut ? '⏳' : '🛒'}</Text>
-            <Text style={styles.cartCount}>{cartItemCount}</Text>
+            <Text style={styles.cartIcon}>🛒</Text>
+            <Text style={styles.cartCount}>{itemCount}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -257,7 +206,7 @@ export default function MarketplaceScreen() {
                       styles.addToCartButton,
                       !product.inStock && styles.addToCartButtonDisabled,
                     ]}
-                    onPress={() => addToCart(product.id)}
+                    onPress={() => addToCart(product)}
                     disabled={!product.inStock}
                   >
                     <Text style={styles.addToCartText}>

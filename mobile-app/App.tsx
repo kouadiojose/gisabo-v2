@@ -12,9 +12,11 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import TransferScreen from './src/screens/TransferScreen';
 import MarketplaceScreen from './src/screens/MarketplaceScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import CartScreen from './src/screens/CartScreen';
 
-// Auth Context
+// Contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { CartProvider } from './src/contexts/CartContext';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -70,7 +72,19 @@ function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="Main" component={TabNavigator} />
+          <>
+            <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen
+              name="Cart"
+              component={CartScreen}
+              options={{
+                headerShown: true,
+                title: 'Panier',
+                headerStyle: { backgroundColor: '#FF6B35' },
+                headerTintColor: '#fff',
+              }}
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
@@ -85,8 +99,10 @@ function AppNavigator() {
 export default function App() {
   return (
     <AuthProvider>
-      <StatusBar style="auto" />
-      <AppNavigator />
+      <CartProvider>
+        <StatusBar style="auto" />
+        <AppNavigator />
+      </CartProvider>
     </AuthProvider>
   );
 }
