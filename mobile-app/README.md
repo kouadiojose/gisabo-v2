@@ -85,8 +85,8 @@ eas build --platform android    # génère un .aab / .apk
 eas build --platform ios        # génère un .ipa (compte Apple Developer requis)
 ```
 
-> Les icônes/splash de marque ne sont pas encore fournies : l'app utilise les
-> visuels Expo par défaut. À ajouter dans `assets/` avant publication.
+> Les icônes et le splash de marque GISABO sont fournis dans `assets/`
+> (générés à partir du logo officiel) et configurés dans `app.json`.
 
 ### 5. Paiement par carte (Square) — development build requis
 
