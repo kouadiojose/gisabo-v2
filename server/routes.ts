@@ -8,9 +8,28 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { sendTransferConfirmationEmail, sendOrderConfirmationEmail } from "./emailService";
 import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
+
+// 🔒 Clé d'idempotence déterministe pour Square. Elle est dérivée du token de
+// paiement (unique à chaque tokenisation de carte, mais identique si le client
+// renvoie exactement la même requête après un timeout/erreur réseau). Square
+// déduplique alors les re-essais identiques et ne débite qu'une seule fois,
+// tout en autorisant un nouvel essai légitime (nouvelle carte = nouveau token).
+function buildPaymentIdempotencyKey(
+  prefix: string,
+  scope: string | number,
+  paymentToken: string,
+): string {
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(paymentToken)
+    .digest("hex")
+    .slice(0, 24);
+  return `${prefix}_${scope}_${tokenHash}`; // <= 45 caractères (limite Square)
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || "gisabo-admin-secret-key-2024";
 const SQUARE_APPLICATION_ID = process.env.SQUARE_APPLICATION_ID || "";
@@ -496,8 +515,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? 'https://connect.squareup.com' 
         : 'https://connect.squareupsandbox.com';
 
-      // 🔒 GÉNÉRATION D'UNE CLÉ D'IDEMPOTENCE UNIQUE ET SÉCURISÉE
-      const idempotencyKey = `transfer_${transferId}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // 🔒 CLÉ D'IDEMPOTENCE DÉTERMINISTE (anti double débit)
+      // Basée sur le token: un re-essai identique est dédupliqué par Square.
+      const idempotencyKey = buildPaymentIdempotencyKey("tr", transferId, paymentToken);
 
       // 🔒 CONVERSION ET VALIDATION DU MONTANT
       // Apply Afterpay processing fee server-side so the client cannot bypass it
@@ -771,8 +791,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? 'https://connect.squareup.com' 
             : 'https://connect.squareupsandbox.com';
 
-          // Génération d'une clé d'idempotence unique
-          const idempotencyKey = `order_${order.id}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          // 🔒 Clé d'idempotence déterministe (anti double débit). Basée sur le
+          // token et NON sur order.id (qui change à chaque appel): un re-essai du
+          // même paiement est ainsi dédupliqué par Square.
+          const idempotencyKey = buildPaymentIdempotencyKey("or", req.user.id, paymentToken);
 
           // Conversion du montant en centimes
           const amountInCents = Math.round(total * 100);
@@ -883,7 +905,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : 'https://connect.squareupsandbox.com';
 
       // Génération d'une clé d'idempotence unique
-      const idempotencyKey = `order_${orderId}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // 🔒 Clé d'idempotence déterministe (anti double débit) basée sur le token.
+      const idempotencyKey = buildPaymentIdempotencyKey("or", orderId, paymentToken);
 
       // Conversion du montant en centimes
       const amountInCents = Math.round(parseFloat(order.total) * 100);
