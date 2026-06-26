@@ -307,7 +307,7 @@ export const translations = {
         address: {
           title: "Adresse",
           description: "Venez nous rencontrer à nos bureaux.",
-          info: "9, rue Amherst, Gatineau, QC"
+          info: "341 Rue Jules-Bordet, Gatineau, QC, Ottawa"
         }
       },
       toast: {
@@ -659,7 +659,7 @@ export const translations = {
         address: {
           title: "Address",
           description: "Come meet us at our offices.",
-          info: "9 Amherst St, Gatineau, QC"
+          info: "341 Rue Jules-Bordet, Gatineau, QC, Ottawa"
         }
       },
       toast: {

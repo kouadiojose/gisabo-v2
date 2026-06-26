@@ -169,7 +169,7 @@ export async function sendTransferConfirmationEmail(
                 </div>
                 <div class="info-row">
                     <span class="label">Relevé sur carte bancaire:</span>
-                    <span>SQ*Coop Arcade</span>
+                    <span>SQ*Gisabo Services</span>
                 </div>
             </div>
 
@@ -246,7 +246,7 @@ Mode livraison: ${transfer.deliveryMethod}
 ${transfer.bankName ? `Nom de la banque: ${transfer.bankName}` : ""}
 ${transfer.accountNumber ? `Numéro de compte: ${transfer.accountNumber}` : ""}
 ID Paiement Square: ${paymentId}
-Relevé sur carte bancaire: SQ*Coop Arcade
+Relevé sur carte bancaire: SQ*Gisabo Services
 
 Gisabo Group - Votre partenaire de confiance pour les transferts d'argent
 Contact: gisabonet@gmail.com | +1 (613) 762-6686
@@ -452,7 +452,7 @@ ${shippingInfo.note ? `Note: ${shippingInfo.note}` : ""}
 
 INFORMATIONS DE PAIEMENT
 ID Transaction: ${paymentId}
-Relevé bancaire: SQ*Coop Arcade
+Relevé bancaire: SQ*Gisabo Services
 
 Gisabo Group - Votre marketplace de confiance
 Contact: gisabonet@gmail.com | +1 (613) 762-6686
