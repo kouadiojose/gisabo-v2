@@ -8,30 +8,22 @@ import {
   Alert,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../lib/i18n';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const { language, setLanguage, t } = useI18n();
 
   const handleLogout = () => {
     Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      t('profile.logout'),
+      t('profile.logoutConfirm'),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Déconnexion', onPress: logout, style: 'destructive' },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('profile.logout'), onPress: logout, style: 'destructive' },
       ]
     );
   };
-
-  const menuItems = [
-    { id: 'personal', title: 'Informations personnelles', icon: '👤' },
-    { id: 'security', title: 'Sécurité', icon: '🔒' },
-    { id: 'payment', title: 'Méthodes de paiement', icon: '💳' },
-    { id: 'notifications', title: 'Notifications', icon: '🔔' },
-    { id: 'language', title: 'Langue', icon: '🌐' },
-    { id: 'help', title: 'Aide et support', icon: '❓' },
-    { id: 'about', title: 'À propos', icon: 'ℹ️' },
-  ];
 
   return (
     <ScrollView style={styles.container}>
@@ -64,22 +56,37 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Menu Items */}
+      {/* Settings : sélecteur de langue */}
       <View style={styles.menuContainer}>
-        {menuItems.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.menuItem}>
-            <View style={styles.menuItemLeft}>
-              <Text style={styles.menuIcon}>{item.icon}</Text>
-              <Text style={styles.menuTitle}>{item.title}</Text>
-            </View>
-            <Text style={styles.menuArrow}>›</Text>
-          </TouchableOpacity>
-        ))}
+        <View style={styles.menuItem}>
+          <View style={styles.menuItemLeft}>
+            <Text style={styles.menuIcon}>🌐</Text>
+            <Text style={styles.menuTitle}>{t('profile.language')}</Text>
+          </View>
+          <View style={styles.langToggle}>
+            <TouchableOpacity
+              style={[styles.langOption, language === 'fr' && styles.langOptionActive]}
+              onPress={() => setLanguage('fr')}
+            >
+              <Text style={[styles.langText, language === 'fr' && styles.langTextActive]}>
+                FR
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langOption, language === 'en' && styles.langOptionActive]}
+              onPress={() => setLanguage('en')}
+            >
+              <Text style={[styles.langText, language === 'en' && styles.langTextActive]}>
+                EN
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Déconnexion</Text>
+        <Text style={styles.logoutText}>{t('profile.logout')}</Text>
       </TouchableOpacity>
 
       {/* App Version */}
@@ -189,6 +196,28 @@ const styles = StyleSheet.create({
   menuArrow: {
     fontSize: 20,
     color: '#ccc',
+  },
+  langToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 2,
+  },
+  langOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  langOptionActive: {
+    backgroundColor: '#FF6B35',
+  },
+  langText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  langTextActive: {
+    color: '#fff',
   },
   logoutButton: {
     backgroundColor: '#fff',

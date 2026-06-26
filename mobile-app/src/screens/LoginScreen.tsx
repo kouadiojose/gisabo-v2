@@ -12,17 +12,19 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../lib/i18n';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useI18n();
   const navigation = useNavigation<any>();
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      Alert.alert(t('common.error'), t('auth.fillFields'));
       return;
     }
 
@@ -31,7 +33,7 @@ export default function LoginScreen() {
     setIsLoading(false);
 
     if (!result.ok) {
-      Alert.alert('Erreur', result.error || 'Identifiants incorrects');
+      Alert.alert(t('common.error'), result.error || t('auth.badCredentials'));
     }
   };
 
@@ -44,38 +46,38 @@ export default function LoginScreen() {
         {/* Logo */}
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>GISABO</Text>
-          <Text style={styles.tagline}>Votre pont vers l'Afrique</Text>
+          <Text style={styles.tagline}>{t('auth.tagline')}</Text>
         </View>
 
         {/* Login Form */}
         <View style={styles.formContainer}>
-          <Text style={styles.title}>Connexion</Text>
-          
+          <Text style={styles.title}>{t('auth.loginTitle')}</Text>
+
           <TextInput
             style={styles.input}
-            placeholder="Email ou nom d'utilisateur"
+            placeholder={t('auth.identifier')}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          
+
           <TextInput
             style={styles.input}
-            placeholder="Mot de passe"
+            placeholder={t('auth.password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
           />
-          
+
           <TouchableOpacity
             style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
           >
             <Text style={styles.loginButtonText}>
-              {isLoading ? 'Connexion...' : 'Se connecter'}
+              {isLoading ? t('auth.signingIn') : t('auth.signIn')}
             </Text>
           </TouchableOpacity>
 
@@ -84,8 +86,8 @@ export default function LoginScreen() {
             onPress={() => navigation.navigate('Register')}
           >
             <Text style={styles.registerLinkText}>
-              Pas encore de compte ?{' '}
-              <Text style={styles.registerLinkStrong}>Créer un compte</Text>
+              {t('auth.noAccount')}{' '}
+              <Text style={styles.registerLinkStrong}>{t('auth.createAccount')}</Text>
             </Text>
           </TouchableOpacity>
         </View>

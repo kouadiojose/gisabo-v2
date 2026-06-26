@@ -19,11 +19,13 @@ import OrderDetailScreen from './src/screens/OrderDetailScreen';
 // Contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { CartProvider } from './src/contexts/CartContext';
+import { I18nProvider, useI18n } from './src/lib/i18n';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabNavigator() {
+  const { t } = useI18n();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -55,10 +57,26 @@ function TabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Transfer" component={TransferScreen} />
-      <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{ tabBarLabel: t('nav.dashboard'), title: t('nav.dashboard') }}
+      />
+      <Tab.Screen
+        name="Transfer"
+        component={TransferScreen}
+        options={{ tabBarLabel: t('nav.transfer'), title: t('nav.transfer') }}
+      />
+      <Tab.Screen
+        name="Marketplace"
+        component={MarketplaceScreen}
+        options={{ tabBarLabel: t('nav.marketplace'), title: t('nav.marketplace') }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarLabel: t('nav.profile'), title: t('nav.profile') }}
+      />
     </Tab.Navigator>
   );
 }
@@ -120,11 +138,13 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <StatusBar style="auto" />
-        <AppNavigator />
-      </CartProvider>
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <CartProvider>
+          <StatusBar style="auto" />
+          <AppNavigator />
+        </CartProvider>
+      </AuthProvider>
+    </I18nProvider>
   );
 }

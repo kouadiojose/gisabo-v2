@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { statusLabel } from '../utils/status';
+import { useI18n } from '../lib/i18n';
 
 // amount / total proviennent de colonnes numeric -> renvoyées en string par l'API.
 interface Transfer {
@@ -34,6 +35,7 @@ interface Order {
 
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const navigation = useNavigation<any>();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -117,10 +119,10 @@ export default function DashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          Bonjour, {user?.firstName || 'Utilisateur'} !
+          {t('dashboard.greeting')}, {user?.firstName || 'Utilisateur'} !
         </Text>
         <Text style={styles.subtitle}>
-          Bienvenue sur votre tableau de bord GISABO
+          {t('dashboard.subtitle')}
         </Text>
       </View>
 
@@ -128,47 +130,47 @@ export default function DashboardScreen() {
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.totalSent.toFixed(2)}</Text>
-          <Text style={styles.statLabel}>Total envoyé (CAD)</Text>
+          <Text style={styles.statLabel}>{t('dashboard.totalSent')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.monthlyTransfers}</Text>
-          <Text style={styles.statLabel}>Transferts ce mois</Text>
+          <Text style={styles.statLabel}>{t('dashboard.monthly')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.totalOrders}</Text>
-          <Text style={styles.statLabel}>Commandes</Text>
+          <Text style={styles.statLabel}>{t('dashboard.orders')}</Text>
         </View>
       </View>
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
-        <Text style={styles.sectionTitle}>Actions rapides</Text>
+        <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
         <View style={styles.actionButtons}>
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.actionIcon}>💸</Text>
-            <Text style={styles.actionText}>Nouveau transfert</Text>
+            <Text style={styles.actionText}>{t('dashboard.newTransfer')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.actionIcon}>🛒</Text>
-            <Text style={styles.actionText}>Marketplace</Text>
+            <Text style={styles.actionText}>{t('nav.marketplace')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.actionIcon}>📱</Text>
-            <Text style={styles.actionText}>Recharge mobile</Text>
+            <Text style={styles.actionText}>{t('dashboard.mobileTopup')}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Recent Transfers */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Transferts récents</Text>
+        <Text style={styles.sectionTitle}>{t('dashboard.recentTransfers')}</Text>
         {loading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator color="#FF6B35" />
           </View>
         ) : transfers.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Aucun transfert récent</Text>
+            <Text style={styles.emptyText}>{t('dashboard.noTransfers')}</Text>
           </View>
         ) : (
           transfers.slice(0, 3).map((transfer) => (
@@ -179,7 +181,7 @@ export default function DashboardScreen() {
             >
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionTitle}>
-                  Vers {transfer.recipientName}
+                  {t('dashboard.toRecipient')} {transfer.recipientName}
                 </Text>
                 <Text style={styles.transactionDetails}>
                   {Number(transfer.amount).toFixed(2)} {transfer.currency} → {transfer.destinationCountry}
@@ -202,14 +204,14 @@ export default function DashboardScreen() {
 
       {/* Recent Orders */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Commandes récentes</Text>
+        <Text style={styles.sectionTitle}>{t('dashboard.recentOrders')}</Text>
         {loading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator color="#FF6B35" />
           </View>
         ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Aucune commande récente</Text>
+            <Text style={styles.emptyText}>{t('dashboard.noOrders')}</Text>
           </View>
         ) : (
           orders.slice(0, 3).map((order) => (
@@ -220,7 +222,7 @@ export default function DashboardScreen() {
             >
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionTitle}>
-                  Commande #{order.id}
+                  {t('dashboard.order')} #{order.id}
                 </Text>
                 <Text style={styles.transactionDetails}>
                   {Number(order.total).toFixed(2)} {order.currency}
