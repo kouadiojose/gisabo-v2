@@ -13,6 +13,8 @@ import TransferScreen from './src/screens/TransferScreen';
 import MarketplaceScreen from './src/screens/MarketplaceScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CartScreen from './src/screens/CartScreen';
+import TransferDetailScreen from './src/screens/TransferDetailScreen';
+import OrderDetailScreen from './src/screens/OrderDetailScreen';
 
 // Contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
@@ -80,6 +82,26 @@ function AppNavigator() {
               options={{
                 headerShown: true,
                 title: 'Panier',
+                headerStyle: { backgroundColor: '#FF6B35' },
+                headerTintColor: '#fff',
+              }}
+            />
+            <Stack.Screen
+              name="TransferDetail"
+              component={TransferDetailScreen}
+              options={{
+                headerShown: true,
+                title: 'Détail du transfert',
+                headerStyle: { backgroundColor: '#FF6B35' },
+                headerTintColor: '#fff',
+              }}
+            />
+            <Stack.Screen
+              name="OrderDetail"
+              component={OrderDetailScreen}
+              options={{
+                headerShown: true,
+                title: 'Détail de la commande',
                 headerStyle: { backgroundColor: '#FF6B35' },
                 headerTintColor: '#fff',
               }}

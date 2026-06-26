@@ -8,8 +8,10 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
+import { statusLabel } from '../utils/status';
 
 // amount / total proviennent de colonnes numeric -> renvoyées en string par l'API.
 interface Transfer {
@@ -32,6 +34,7 @@ interface Order {
 
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -169,7 +172,11 @@ export default function DashboardScreen() {
           </View>
         ) : (
           transfers.slice(0, 3).map((transfer) => (
-            <View key={transfer.id} style={styles.transactionCard}>
+            <TouchableOpacity
+              key={transfer.id}
+              style={styles.transactionCard}
+              onPress={() => navigation.navigate('TransferDetail', { transfer })}
+            >
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionTitle}>
                   Vers {transfer.recipientName}
@@ -185,10 +192,10 @@ export default function DashboardScreen() {
                     { color: getStatusColor(transfer.status) },
                   ]}
                 >
-                  {transfer.status}
+                  {statusLabel(transfer.status)}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
@@ -206,7 +213,11 @@ export default function DashboardScreen() {
           </View>
         ) : (
           orders.slice(0, 3).map((order) => (
-            <View key={order.id} style={styles.transactionCard}>
+            <TouchableOpacity
+              key={order.id}
+              style={styles.transactionCard}
+              onPress={() => navigation.navigate('OrderDetail', { order })}
+            >
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionTitle}>
                   Commande #{order.id}
@@ -222,10 +233,10 @@ export default function DashboardScreen() {
                     { color: getStatusColor(order.status) },
                   ]}
                 >
-                  {order.status}
+                  {statusLabel(order.status)}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>

@@ -114,6 +114,11 @@ class ApiService {
     return response.json();
   }
 
+  async getOrderItems(orderId: number) {
+    const response = await this.makeRequest(`/api/orders/${orderId}/items`);
+    return response.json();
+  }
+
   // Products endpoints
   async getProducts() {
     const response = await this.makeRequest('/api/products');
