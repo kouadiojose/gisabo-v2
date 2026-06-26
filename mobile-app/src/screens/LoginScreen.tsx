@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginScreen() {
@@ -17,6 +18,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const navigation = useNavigation<any>();
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -25,11 +27,11 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    const success = await login(username, password);
+    const result = await login(username, password);
     setIsLoading(false);
 
-    if (!success) {
-      Alert.alert('Erreur', 'Nom d\'utilisateur ou mot de passe incorrect');
+    if (!result.ok) {
+      Alert.alert('Erreur', result.error || 'Identifiants incorrects');
     }
   };
 
@@ -51,7 +53,7 @@ export default function LoginScreen() {
           
           <TextInput
             style={styles.input}
-            placeholder="Nom d'utilisateur"
+            placeholder="Email ou nom d'utilisateur"
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
@@ -77,8 +79,14 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+          <TouchableOpacity
+            style={styles.registerLink}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={styles.registerLinkText}>
+              Pas encore de compte ?{' '}
+              <Text style={styles.registerLinkStrong}>Créer un compte</Text>
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -162,13 +170,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  forgotPassword: {
+  registerLink: {
     alignItems: 'center',
     marginTop: 20,
   },
-  forgotPasswordText: {
+  registerLinkText: {
+    color: '#666',
+    fontSize: 15,
+  },
+  registerLinkStrong: {
     color: '#FF6B35',
-    fontSize: 16,
+    fontWeight: 'bold',
   },
   featuresContainer: {
     flexDirection: 'row',

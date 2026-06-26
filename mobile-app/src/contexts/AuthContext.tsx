@@ -11,10 +11,25 @@ interface User {
   phone?: string;
 }
 
+interface RegisterData {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
+export interface AuthResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<AuthResult>;
+  register: (data: RegisterData) => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
 
@@ -43,15 +58,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<AuthResult> => {
     try {
       const data = await apiService.login(username, password);
       await SecureStore.setItemAsync('authToken', data.token);
       setUser(data.user);
-      return true;
-    } catch (error) {
+      return { ok: true };
+    } catch (error: any) {
       console.error('Login failed:', error);
-      return false;
+      return { ok: false, error: error?.message || 'Connexion impossible' };
+    }
+  };
+
+  const register = async (data: RegisterData): Promise<AuthResult> => {
+    try {
+      const result = await apiService.register(data);
+      await SecureStore.setItemAsync('authToken', result.token);
+      setUser(result.user);
+      return { ok: true };
+    } catch (error: any) {
+      console.error('Register failed:', error);
+      return { ok: false, error: error?.message || 'Inscription impossible' };
     }
   };
 
@@ -61,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

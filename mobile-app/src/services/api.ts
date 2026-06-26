@@ -30,7 +30,23 @@ class ApiService {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Le serveur renvoie tantôt du JSON { message }, tantôt du texte brut
+      // (ex: 401 "Identifiants invalides"). On extrait un message lisible.
+      let message = `Erreur ${response.status}`;
+      try {
+        const text = await response.text();
+        if (text) {
+          try {
+            const json = JSON.parse(text);
+            message = json.message || json.error || text;
+          } catch {
+            message = text;
+          }
+        }
+      } catch {
+        // corps illisible : on garde le message par défaut
+      }
+      throw new Error(message);
     }
 
     return response;
@@ -41,6 +57,21 @@ class ApiService {
     const response = await this.makeRequest('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
+    });
+    return response.json();
+  }
+
+  async register(userData: {
+    firstName: string;
+    lastName: string;
+    username: string;
+    email: string;
+    password: string;
+    phone?: string;
+  }) {
+    const response = await this.makeRequest('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
     });
     return response.json();
   }
