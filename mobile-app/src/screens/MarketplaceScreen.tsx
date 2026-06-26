@@ -8,16 +8,17 @@ import {
   Image,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import apiService from '../services/api';
 
+// L'API renvoie des produits déjà localisés (champs `name` / `description`
+// selon la langue), et `price` provient d'une colonne numeric (donc string).
 interface Product {
   id: number;
-  nameFr: string;
-  nameEn: string;
-  descriptionFr: string;
-  descriptionEn: string;
-  price: number;
+  name: string;
+  description: string;
+  price: number | string;
   currency: string;
   imageUrl?: string;
   inStock: boolean;
@@ -37,6 +38,7 @@ export default function MarketplaceScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<{ [key: number]: number }>({});
 
   useEffect(() => {
@@ -49,12 +51,14 @@ export default function MarketplaceScreen() {
         apiService.getProducts(),
         apiService.getCategories(),
       ]);
-      
-      setProducts(productsData);
-      setCategories(categoriesData);
+
+      setProducts(Array.isArray(productsData) ? productsData : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (error) {
       console.error('Failed to fetch marketplace data:', error);
       Alert.alert('Erreur', 'Impossible de charger les données du marketplace');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -141,11 +145,15 @@ export default function MarketplaceScreen() {
             }
           </Text>
           
-          {filteredProducts.length === 0 ? (
+          {loading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color="#FF6B35" />
+            </View>
+          ) : filteredProducts.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>📦</Text>
               <Text style={styles.emptyText}>
-                {products.length === 0 
+                {products.length === 0
                   ? 'Aucun produit disponible pour le moment'
                   : 'Aucun produit dans cette catégorie'
                 }
@@ -176,13 +184,13 @@ export default function MarketplaceScreen() {
                   
                   <View style={styles.productInfo}>
                     <Text style={styles.productName} numberOfLines={2}>
-                      {product.nameFr}
+                      {product.name}
                     </Text>
                     <Text style={styles.productDescription} numberOfLines={2}>
-                      {product.descriptionFr}
+                      {product.description}
                     </Text>
                     <Text style={styles.productPrice}>
-                      {product.price.toFixed(2)} {product.currency}
+                      {Number(product.price).toFixed(2)} {product.currency}
                     </Text>
                   </View>
                   

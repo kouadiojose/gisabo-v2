@@ -57,17 +57,36 @@ npm install
 
 ### 2. Configuration de l'API
 
-Modifiez le fichier `src/services/api.ts` :
+Par défaut, l'application pointe vers l'API de production (Railway) :
+`https://gisabo-v2.up.railway.app`.
 
-```typescript
-const API_BASE_URL = 'https://votre-domaine-replit.replit.app';
+Pour cibler une autre API (locale, staging…), définissez la variable
+d'environnement `EXPO_PUBLIC_API_URL` (Expo l'inline automatiquement) :
+
+```bash
+EXPO_PUBLIC_API_URL=http://localhost:5000 npx expo start
 ```
 
 ### 3. Démarrage du développement
 
 ```bash
-npx expo start
+cd mobile-app
+npx expo start          # puis scanner le QR code avec Expo Go (iOS/Android)
+npx expo start --android
+npx expo start --ios
 ```
+
+### 4. Builds Android / iOS (EAS Build, sans Mac)
+
+```bash
+npm install -g eas-cli
+eas login                       # compte Expo (gratuit)
+eas build --platform android    # génère un .aab / .apk
+eas build --platform ios        # génère un .ipa (compte Apple Developer requis)
+```
+
+> Les icônes/splash de marque ne sont pas encore fournies : l'app utilise les
+> visuels Expo par défaut. À ajouter dans `assets/` avant publication.
 
 ## Connexion avec le backend
 

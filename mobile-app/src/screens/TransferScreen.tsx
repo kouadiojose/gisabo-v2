@@ -30,22 +30,24 @@ export default function TransferScreen() {
     recipientPhone: "",
     amount: "",
     destinationCountry: "",
-    deliveryMethod: "mobile_money",
+    deliveryMethod: "mobile",
   });
 
   const [fees, setFees] = useState(0);
   const [exchangeRate, setExchangeRate] = useState(1);
   const [receivedAmount, setReceivedAmount] = useState(0);
-  const [destinationCurrency, setDestinationCurrency] = useState("XOF");
+  const [destinationCurrency, setDestinationCurrency] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const countries: Country[] = [
     { code: "BI", name: "Burundi", currency: "BIF" },
-    { code: "CA", name: "Canada", currency: "CA" },
+    { code: "CA", name: "Canada", currency: "CAD" },
   ];
 
+  // Mêmes valeurs que l'app web ("mobile" / "bank") pour des données synchronisées.
   const deliveryMethods = [
-    { id: "mobile_money", label: "Mobile Money", icon: "📱" },
-    { id: "bank_transfer", label: "Virement bancaire", icon: "🏦" },
+    { id: "mobile", label: "Mobile Money", icon: "📱" },
+    { id: "bank", label: "Virement bancaire", icon: "🏦" },
   ];
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export default function TransferScreen() {
 
   const calculateTotal = (amount: string, rate: number = exchangeRate) => {
     const numAmount = parseFloat(amount) || 0;
-    const calculatedFees = numAmount * 0.05; // 5% fees
+    const calculatedFees = 0; // Frais à zéro, aligné sur l'app web
     const received = numAmount * rate;
 
     setFees(calculatedFees);
@@ -117,9 +119,50 @@ export default function TransferScreen() {
     );
   };
 
-  const processTransfer = () => {
-    // Here you would integrate with your payment system
-    Alert.alert("Succès", "Transfert initié avec succès !");
+  const processTransfer = async () => {
+    const country = countries.find(
+      (c) => c.code === formData.destinationCountry,
+    );
+
+    setSubmitting(true);
+    try {
+      // Même payload que l'app web -> POST /api/transfers (statut "pending").
+      // Le paiement (Square) sera l'étape suivante; le transfert apparaît dès
+      // maintenant dans l'historique, synchronisé entre web et mobile.
+      await apiService.createTransfer({
+        amount: parseFloat(formData.amount),
+        currency: "CAD",
+        recipientName: formData.recipientName,
+        recipientPhone: formData.recipientPhone,
+        destinationCountry: country?.name || formData.destinationCountry,
+        destinationCurrency: country?.currency || destinationCurrency,
+        exchangeRate,
+        fees,
+        receivedAmount,
+        deliveryMethod: formData.deliveryMethod,
+      });
+
+      Alert.alert(
+        "Transfert enregistré",
+        "Votre transfert a été créé et apparaît dans votre historique. Le paiement sera bientôt disponible dans l'application.",
+      );
+
+      setFormData({
+        recipientName: "",
+        recipientPhone: "",
+        amount: "",
+        destinationCountry: "",
+        deliveryMethod: "mobile",
+      });
+      setFees(0);
+      setReceivedAmount(0);
+      setExchangeRate(1);
+      setDestinationCurrency("");
+    } catch (error: any) {
+      Alert.alert("Erreur", error?.message || "Impossible de créer le transfert");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -239,15 +282,19 @@ export default function TransferScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Montant reçu:</Text>
               <Text style={styles.summaryValue}>
-                {receivedAmount.toFixed(0)} XOF
+                {receivedAmount.toFixed(0)} {destinationCurrency}
               </Text>
             </View>
           </View>
         )}
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+        <TouchableOpacity
+          style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
           <Text style={styles.submitButtonText}>
-            Continuer vers le paiement
+            {submitting ? "Enregistrement..." : "Enregistrer le transfert"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -415,6 +462,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     color: "#fff",

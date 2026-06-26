@@ -6,13 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 
+// amount / total proviennent de colonnes numeric -> renvoyées en string par l'API.
 interface Transfer {
   id: number;
-  amount: number;
+  amount: number | string;
   currency: string;
   recipientName: string;
   destinationCountry: string;
@@ -22,7 +24,7 @@ interface Transfer {
 
 interface Order {
   id: number;
-  total: number;
+  total: number | string;
   currency: string;
   status: string;
   createdAt: string;
@@ -33,6 +35,7 @@ export default function DashboardScreen() {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalSent: 0,
     monthlyTransfers: 0,
@@ -50,31 +53,35 @@ export default function DashboardScreen() {
         apiService.getOrders(),
       ]);
       
-      setTransfers(transfersData);
-      setOrders(ordersData);
+      const transfersList: Transfer[] = Array.isArray(transfersData) ? transfersData : [];
+      const ordersList: Order[] = Array.isArray(ordersData) ? ordersData : [];
+      setTransfers(transfersList);
+      setOrders(ordersList);
 
-      // Calculate stats
-      const totalSent = transfersData.reduce((sum: number, transfer: Transfer) => {
-        return transfer.status === 'completed' ? sum + transfer.amount : sum;
+      // Calculate stats (les montants arrivent en string -> coercition numérique)
+      const totalSent = transfersList.reduce((sum: number, transfer: Transfer) => {
+        return transfer.status === 'completed' ? sum + Number(transfer.amount) : sum;
       }, 0);
 
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
       
-      const monthlyTransfers = transfersData.filter((transfer: Transfer) => {
+      const monthlyTransfers = transfersList.filter((transfer: Transfer) => {
         const transferDate = new Date(transfer.createdAt);
-        return transferDate.getMonth() === currentMonth && 
+        return transferDate.getMonth() === currentMonth &&
                transferDate.getFullYear() === currentYear;
       }).length;
 
       setStats({
         totalSent,
         monthlyTransfers,
-        totalOrders: ordersData.length,
+        totalOrders: ordersList.length,
       });
     } catch (error) {
       console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,6 +121,22 @@ export default function DashboardScreen() {
         </Text>
       </View>
 
+      {/* Statistiques */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.totalSent.toFixed(2)}</Text>
+          <Text style={styles.statLabel}>Total envoyé (CAD)</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.monthlyTransfers}</Text>
+          <Text style={styles.statLabel}>Transferts ce mois</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.totalOrders}</Text>
+          <Text style={styles.statLabel}>Commandes</Text>
+        </View>
+      </View>
+
       {/* Quick Actions */}
       <View style={styles.quickActions}>
         <Text style={styles.sectionTitle}>Actions rapides</Text>
@@ -136,7 +159,11 @@ export default function DashboardScreen() {
       {/* Recent Transfers */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Transferts récents</Text>
-        {transfers.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color="#FF6B35" />
+          </View>
+        ) : transfers.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>Aucun transfert récent</Text>
           </View>
@@ -148,7 +175,7 @@ export default function DashboardScreen() {
                   Vers {transfer.recipientName}
                 </Text>
                 <Text style={styles.transactionDetails}>
-                  {transfer.amount} {transfer.currency} → {transfer.destinationCountry}
+                  {Number(transfer.amount).toFixed(2)} {transfer.currency} → {transfer.destinationCountry}
                 </Text>
               </View>
               <View style={styles.transactionStatus}>
@@ -169,7 +196,11 @@ export default function DashboardScreen() {
       {/* Recent Orders */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Commandes récentes</Text>
-        {orders.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator color="#FF6B35" />
+          </View>
+        ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>Aucune commande récente</Text>
           </View>
@@ -181,7 +212,7 @@ export default function DashboardScreen() {
                   Commande #{order.id}
                 </Text>
                 <Text style={styles.transactionDetails}>
-                  {order.total} {order.currency}
+                  {Number(order.total).toFixed(2)} {order.currency}
                 </Text>
               </View>
               <View style={styles.transactionStatus}>
@@ -222,6 +253,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     opacity: 0.9,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 15,
+    marginTop: 15,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF6B35',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center',
   },
   quickActions: {
     backgroundColor: '#fff',
