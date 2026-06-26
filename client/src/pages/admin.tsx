@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Trash2, Edit3, Plus, Save, X } from "lucide-react";
+import { Trash2, Edit3, Plus, Save, X, TrendingUp, Upload, Settings, Package } from "lucide-react";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 
@@ -49,7 +49,7 @@ const getAdminToken = (): string | null => {
   return localStorage.getItem("admin_token");
 };
 
-const getAdminAuthHeaders = () => {
+const getAdminAuthHeaders = (): Record<string, string> => {
   const token = getAdminToken();
   if (token) {
     return { Authorization: `Bearer ${token}` };

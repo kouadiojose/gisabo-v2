@@ -65,7 +65,7 @@ function isAdminAuthenticated(): boolean {
   }
 }
 
-function getAdminAuthHeaders() {
+function getAdminAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('adminToken');
   if (token) {
     return { 'Authorization': `Bearer ${token}` };
@@ -111,17 +111,17 @@ export default function AdminSidebar() {
   const [editingRate, setEditingRate] = useState<ExchangeRate | null>(null);
 
   // Fetch data
-  const { data: exchangeRates } = useQuery({
+  const { data: exchangeRates } = useQuery<ExchangeRate[]>({
     queryKey: ["/api/admin/exchange-rates"],
     enabled: isAdminAuthenticated(),
   });
 
-  const { data: services } = useQuery({
+  const { data: services } = useQuery<Service[]>({
     queryKey: ["/api/admin/services"],
     enabled: isAdminAuthenticated(),
   });
 
-  const { data: products } = useQuery({
+  const { data: products } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     enabled: isAdminAuthenticated(),
   });

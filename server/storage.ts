@@ -218,8 +218,8 @@ export class DatabaseStorage implements IStorage {
       price: orderItems.price,
       product: {
         id: products.id,
-        name: products.name,
-        description: products.description,
+        name: products.nameFr,
+        description: products.descriptionFr,
         price: products.price,
         currency: products.currency,
         categoryId: products.categoryId,

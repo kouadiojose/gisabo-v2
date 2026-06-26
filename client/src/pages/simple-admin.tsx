@@ -28,7 +28,7 @@ function isAdminAuthenticated(): boolean {
   return !!token;
 }
 
-function getAdminAuthHeaders() {
+function getAdminAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("admin_token");
   if (token) {
     return {

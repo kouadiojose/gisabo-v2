@@ -295,6 +295,7 @@ export default function Gisabo() {
       processPaymentMutation.mutate({
         transferId: createTransferMutation.data.id,
         paymentToken: mockPaymentToken,
+        paymentMethod: "card",
       });
     }
   };
