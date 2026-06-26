@@ -53,15 +53,14 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: mobile-app/package-lock.json
-    
+
     - name: Install Expo CLI
       run: npm install -g @expo/cli
-    
+
     - name: Install dependencies
       working-directory: ./mobile-app
-      run: npm ci
+      # npm install (et non npm ci) car mobile-app n'a pas de package-lock.json
+      run: npm install
     
     - name: Check Expo project
       working-directory: ./mobile-app

@@ -32,6 +32,7 @@ export interface IStorage {
   // Orders
   getOrdersByUser(userId: number): Promise<Order[]>;
   getOrder(id: number): Promise<Order | undefined>;
+  getOrderBySquarePaymentId(squarePaymentId: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: number, status: string, squarePaymentId?: string): Promise<Order | undefined>;
 
@@ -181,6 +182,11 @@ export class DatabaseStorage implements IStorage {
     return order || undefined;
   }
 
+  async getOrderBySquarePaymentId(squarePaymentId: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.squarePaymentId, squarePaymentId));
+    return order || undefined;
+  }
+
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     const [order] = await db
       .insert(orders)
@@ -212,8 +218,8 @@ export class DatabaseStorage implements IStorage {
       price: orderItems.price,
       product: {
         id: products.id,
-        name: products.name,
-        description: products.description,
+        name: products.nameFr,
+        description: products.descriptionFr,
         price: products.price,
         currency: products.currency,
         categoryId: products.categoryId,

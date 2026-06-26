@@ -8,9 +8,28 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { sendTransferConfirmationEmail, sendOrderConfirmationEmail } from "./emailService";
 import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
+
+// 🔒 Clé d'idempotence déterministe pour Square. Elle est dérivée du token de
+// paiement (unique à chaque tokenisation de carte, mais identique si le client
+// renvoie exactement la même requête après un timeout/erreur réseau). Square
+// déduplique alors les re-essais identiques et ne débite qu'une seule fois,
+// tout en autorisant un nouvel essai légitime (nouvelle carte = nouveau token).
+function buildPaymentIdempotencyKey(
+  prefix: string,
+  scope: string | number,
+  paymentToken: string,
+): string {
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(paymentToken)
+    .digest("hex")
+    .slice(0, 24);
+  return `${prefix}_${scope}_${tokenHash}`; // <= 45 caractères (limite Square)
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || "gisabo-admin-secret-key-2024";
 const SQUARE_APPLICATION_ID = process.env.SQUARE_APPLICATION_ID || "";
@@ -496,8 +515,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? 'https://connect.squareup.com' 
         : 'https://connect.squareupsandbox.com';
 
-      // 🔒 GÉNÉRATION D'UNE CLÉ D'IDEMPOTENCE UNIQUE ET SÉCURISÉE
-      const idempotencyKey = `transfer_${transferId}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // 🔒 CLÉ D'IDEMPOTENCE DÉTERMINISTE (anti double débit)
+      // Basée sur le token: un re-essai identique est dédupliqué par Square.
+      const idempotencyKey = buildPaymentIdempotencyKey("tr", transferId, paymentToken);
 
       // 🔒 CONVERSION ET VALIDATION DU MONTANT
       // Apply Afterpay processing fee server-side so the client cannot bypass it
@@ -741,124 +761,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total = applyAfterpayFee(total);
       }
 
-      // Create order first
-      const order = await storage.createOrder({
-        userId: req.user.id,
-        total: total.toString(),
-        currency: "CAD",
-        shippingAddress: addressData,
-      });
-
-      // Create order items
-      for (const item of items) {
-        const product = await storage.getProduct(item.productId);
-        const itemPrice = item.customPrice ? item.customPrice.toString() : product!.price;
-        
-        await storage.createOrderItem({
-          orderId: order.id,
-          productId: item.productId,
-          quantity: item.quantity,
-          price: itemPrice,
+      // Helper: persiste la commande + ses lignes
+      const createOrderWithItems = async () => {
+        const order = await storage.createOrder({
+          userId: req.user.id,
+          total: total.toString(),
+          currency: "CAD",
+          shippingAddress: addressData,
         });
-      }
-
-      // Process payment with Square if paymentToken is provided
-      if (paymentToken) {
-        try {
-          // Configuration Square
-          const squareEnvironment = process.env.SQUARE_ENVIRONMENT === 'production' ? 'production' : 'sandbox';
-          const baseUrl = squareEnvironment === 'production' 
-            ? 'https://connect.squareup.com' 
-            : 'https://connect.squareupsandbox.com';
-
-          // Génération d'une clé d'idempotence unique
-          const idempotencyKey = `order_${order.id}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-          // Conversion du montant en centimes
-          const amountInCents = Math.round(total * 100);
-
-          console.log(`💳 [PAIEMENT COMMANDE] Tentative pour commande ${order.id} - Montant: ${total} CAD`);
-
-          // Appel à l'API Square
-          const response = await fetch(`${baseUrl}/v2/payments`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
-              'Content-Type': 'application/json',
-              'Square-Version': '2023-10-18'
-            },
-            body: JSON.stringify({
-              source_id: paymentToken,
-              idempotency_key: idempotencyKey,
-              amount_money: {
-                amount: amountInCents,
-                currency: "CAD",
-              },
-              location_id: process.env.SQUARE_LOCATION_ID,
-              note: `Achat de produits - Commande #${order.id}`,
-              autocomplete: true,
-              buyer_email_address: req.user.email,
-              reference_id: `order_${order.id}`,
-            })
-          });
-
-          const result = await response.json();
-          // Log only payment status, not full response
-          
-          if (response.ok && result.payment) {
-            const payment = result.payment;
-            
-            console.log(`✅ [PAIEMENT COMMANDE RÉUSSI] ID Square: ${payment.id}`);
-            
-            // Mise à jour du statut de la commande
-            const updatedOrder = await storage.updateOrderStatus(
-              order.id,
-              "processing",
-              payment.id
-            );
-
-            // Récupérer les items de la commande pour l'email
-            const orderItems = await storage.getOrderItems(order.id);
-
-            // Envoyer l'email de confirmation
-            if (updatedOrder) {
-              try {
-                await sendOrderConfirmationEmail(updatedOrder, req.user, orderItems, payment.id);
-                console.log(`📧 Email de confirmation envoyé pour la commande ${order.id}`);
-              } catch (emailError) {
-                console.error(`❌ Erreur envoi email commande ${order.id}:`, emailError);
-                // On continue même si l'email échoue
-              }
-            }
-
-            res.json(updatedOrder);
-            console.log(`🎉 [COMMANDE PAYÉE] ${order.id} avec succès`);
-          } else {
-            console.error('🚨 [PAIEMENT COMMANDE] Réponse Square invalide:', result);
-            res.status(400).json({ 
-              message: result.errors?.[0]?.detail || "Le paiement n'a pas pu être traité",
-              type: "payment_error",
-              details: result.errors
-            });
-          }
-        } catch (squareError: any) {
-          console.error('🚨 [ERREUR SQUARE API COMMANDE]:', squareError);
-          
-          let errorMessage = "Erreur lors du traitement du paiement";
-          if (squareError.result?.errors) {
-            const squareErrorDetail = squareError.result.errors[0];
-            errorMessage = squareErrorDetail.detail || errorMessage;
-          }
-          
-          return res.status(500).json({ 
-            message: errorMessage,
-            type: "payment_processing_error",
-            timestamp: new Date().toISOString()
+        for (const item of items) {
+          const product = await storage.getProduct(item.productId);
+          const itemPrice = item.customPrice ? item.customPrice.toString() : product!.price;
+          await storage.createOrderItem({
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: itemPrice,
           });
         }
-      } else {
-        // Si pas de token de paiement, retourner la commande sans traitement
-        res.json(order);
+        return order;
+      };
+
+      // Sans token de paiement : créer une commande en attente (rétrocompatibilité)
+      if (!paymentToken) {
+        const order = await createOrderWithItems();
+        return res.json(order);
+      }
+
+      // Avec token : ON PAIE D'ABORD, puis on crée la commande seulement si le
+      // paiement réussit. Évite les commandes orphelines en cas d'échec.
+      try {
+        const squareEnvironment = process.env.SQUARE_ENVIRONMENT === 'production' ? 'production' : 'sandbox';
+        const baseUrl = squareEnvironment === 'production'
+          ? 'https://connect.squareup.com'
+          : 'https://connect.squareupsandbox.com';
+
+        // 🔒 Clé d'idempotence déterministe (anti double débit) basée sur le token.
+        const idempotencyKey = buildPaymentIdempotencyKey("or", req.user.id, paymentToken);
+        const amountInCents = Math.round(total * 100);
+
+        console.log(`💳 [PAIEMENT COMMANDE] Tentative - Client ${req.user.id} - Montant: ${total} CAD`);
+
+        const response = await fetch(`${baseUrl}/v2/payments`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+            'Square-Version': '2023-10-18'
+          },
+          body: JSON.stringify({
+            source_id: paymentToken,
+            idempotency_key: idempotencyKey,
+            amount_money: {
+              amount: amountInCents,
+              currency: "CAD",
+            },
+            location_id: process.env.SQUARE_LOCATION_ID,
+            note: `Achat de produits - Client ${req.user.id}`,
+            autocomplete: true,
+            buyer_email_address: req.user.email,
+            reference_id: `order_user_${req.user.id}`,
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.payment) {
+          const payment = result.payment;
+          console.log(`✅ [PAIEMENT COMMANDE RÉUSSI] ID Square: ${payment.id}`);
+
+          // 🔒 Idempotence applicative : si une commande existe déjà pour ce
+          // paiement (re-essai dédupliqué par Square), la renvoyer sans doublon.
+          const existingOrder = await storage.getOrderBySquarePaymentId(payment.id);
+          if (existingOrder) {
+            console.log(`♻️ [COMMANDE EXISTANTE] ${existingOrder.id} pour le paiement ${payment.id}`);
+            return res.json(existingOrder);
+          }
+
+          // Créer la commande maintenant que le paiement est confirmé
+          const order = await createOrderWithItems();
+          const updatedOrder = await storage.updateOrderStatus(order.id, "processing", payment.id);
+          const orderItems = await storage.getOrderItems(order.id);
+
+          if (updatedOrder) {
+            try {
+              await sendOrderConfirmationEmail(updatedOrder, req.user, orderItems, payment.id);
+              console.log(`📧 Email de confirmation envoyé pour la commande ${order.id}`);
+            } catch (emailError) {
+              console.error(`❌ Erreur envoi email commande ${order.id}:`, emailError);
+              // On continue même si l'email échoue
+            }
+          }
+
+          console.log(`🎉 [COMMANDE PAYÉE] ${order.id} avec succès`);
+          return res.json(updatedOrder);
+        } else {
+          console.error('🚨 [PAIEMENT COMMANDE] Réponse Square invalide:', result);
+          return res.status(400).json({
+            message: result.errors?.[0]?.detail || "Le paiement n'a pas pu être traité",
+            type: "payment_error",
+            details: result.errors
+          });
+        }
+      } catch (squareError: any) {
+        console.error('🚨 [ERREUR SQUARE API COMMANDE]:', squareError);
+
+        let errorMessage = "Erreur lors du traitement du paiement";
+        if (squareError.result?.errors) {
+          const squareErrorDetail = squareError.result.errors[0];
+          errorMessage = squareErrorDetail.detail || errorMessage;
+        }
+
+        return res.status(500).json({
+          message: errorMessage,
+          type: "payment_processing_error",
+          timestamp: new Date().toISOString()
+        });
       }
     } catch (error: any) {
       console.error("Order creation error:", error);
@@ -883,7 +901,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : 'https://connect.squareupsandbox.com';
 
       // Génération d'une clé d'idempotence unique
-      const idempotencyKey = `order_${orderId}_${req.user.id}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // 🔒 Clé d'idempotence déterministe (anti double débit) basée sur le token.
+      const idempotencyKey = buildPaymentIdempotencyKey("or", orderId, paymentToken);
 
       // Conversion du montant en centimes
       const amountInCents = Math.round(parseFloat(order.total) * 100);
