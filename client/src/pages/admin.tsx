@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -411,9 +410,7 @@ export default function Admin() {
                 <p className="text-gray-600">Gérez les taux de change pour les transferts</p>
               </div>
 
-          {/* Exchange Rates Tab */}
-          <TabsContent value="exchange-rates">
-            <div className="grid gap-6">
+              <div className="grid gap-6">
               {/* Add New Rate */}
               <Card>
                 <CardHeader>
@@ -535,10 +532,10 @@ export default function Admin() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+            </div>
+          )}
 
-          {/* Services Tab */}
-          <TabsContent value="services">
+          {activeSection === "services" && (
             <div className="grid gap-6">
               {/* Add New Service */}
               <Card>
@@ -639,10 +636,9 @@ export default function Admin() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          )}
 
-          {/* Products Tab */}
-          <TabsContent value="products">
+          {activeSection === "products" && (
             <div className="grid gap-6">
               {/* Add New Product */}
               <Card>
@@ -811,8 +807,8 @@ export default function Admin() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
       <Footer />
     </div>
