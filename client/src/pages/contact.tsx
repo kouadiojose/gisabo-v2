@@ -349,7 +349,7 @@ export default function Contact() {
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <i className="fas fa-phone text-red-600"></i>
-                    <span className="font-semibold text-red-800">+1 (613) 700-0764</span>
+                    <span className="font-semibold text-red-800">+1 (613) 762-6686</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <i className="fas fa-envelope text-red-600"></i>
@@ -377,7 +377,7 @@ export default function Contact() {
               {
                 city: "Gatineau",
                 country: "Canada",
-                address: "9, rue Amherst, Gatineau, QC",
+                address: "341 Rue Jules-Bordet, Gatineau, QC, Ottawa",
                 phone: "+1 (613) 762-6686",
                 email: "gisabonet@gmail.com"
               },
@@ -385,7 +385,7 @@ export default function Contact() {
                 city: "Ottawa",
                 country: "Canada",
                 address: "Ottawa, ON",
-                phone: "+1 (613) 700-0764",
+                phone: "+1 (613) 762-6686",
                 email: "gisabonet@gmail.com"
               }
             ].map((office, index) => (
