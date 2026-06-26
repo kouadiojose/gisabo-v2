@@ -26,6 +26,7 @@
     "react-native-gesture-handler": "~2.31.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
+    "react-native-square-in-app-payments": "^2.0.1",
     "typescript": "~6.0.3"
   }
 }

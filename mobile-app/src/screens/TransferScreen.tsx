@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import apiService from "../services/api";
+import { payWithCard } from "../services/payment";
 
 interface TransferFormData {
   recipientName: string;
@@ -111,12 +112,26 @@ export default function TransferScreen() {
 
     Alert.alert(
       "Confirmer le transfert",
-      `Envoyer ${formData.amount} CAD à ${formData.recipientName} ?`,
+      `Envoyer ${formData.amount} CAD à ${formData.recipientName} ?\nVous allez procéder au paiement par carte.`,
       [
         { text: "Annuler", style: "cancel" },
-        { text: "Confirmer", onPress: processTransfer },
+        { text: "Continuer", onPress: processTransfer },
       ],
     );
+  };
+
+  const resetForm = () => {
+    setFormData({
+      recipientName: "",
+      recipientPhone: "",
+      amount: "",
+      destinationCountry: "",
+      deliveryMethod: "mobile",
+    });
+    setFees(0);
+    setReceivedAmount(0);
+    setExchangeRate(1);
+    setDestinationCurrency("");
   };
 
   const processTransfer = async () => {
@@ -126,10 +141,8 @@ export default function TransferScreen() {
 
     setSubmitting(true);
     try {
-      // Même payload que l'app web -> POST /api/transfers (statut "pending").
-      // Le paiement (Square) sera l'étape suivante; le transfert apparaît dès
-      // maintenant dans l'historique, synchronisé entre web et mobile.
-      await apiService.createTransfer({
+      // 1) Créer le transfert (même payload que le web) -> statut "pending".
+      const transfer = await apiService.createTransfer({
         amount: parseFloat(formData.amount),
         currency: "CAD",
         recipientName: formData.recipientName,
@@ -142,24 +155,27 @@ export default function TransferScreen() {
         deliveryMethod: formData.deliveryMethod,
       });
 
-      Alert.alert(
-        "Transfert enregistré",
-        "Votre transfert a été créé et apparaît dans votre historique. Le paiement sera bientôt disponible dans l'application.",
-      );
-
-      setFormData({
-        recipientName: "",
-        recipientPhone: "",
-        amount: "",
-        destinationCountry: "",
-        deliveryMethod: "mobile",
+      // 2) Paiement par carte via la feuille native Square, puis règlement
+      //    côté backend (POST /api/transfers/:id/pay) avec le nonce.
+      await payWithCard(async (nonce) => {
+        await apiService.payTransfer(transfer.id, nonce, "card");
       });
-      setFees(0);
-      setReceivedAmount(0);
-      setExchangeRate(1);
-      setDestinationCurrency("");
+
+      Alert.alert(
+        "Paiement réussi",
+        "Votre transfert a été payé avec succès. Il apparaît dans votre historique.",
+      );
+      resetForm();
     } catch (error: any) {
-      Alert.alert("Erreur", error?.message || "Impossible de créer le transfert");
+      if (error?.message === "CANCELLED") {
+        Alert.alert(
+          "Paiement annulé",
+          "Le transfert a été enregistré (en attente). Vous pourrez le régler plus tard.",
+        );
+        resetForm();
+      } else {
+        Alert.alert("Erreur", error?.message || "Le paiement a échoué");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -294,7 +310,7 @@ export default function TransferScreen() {
           disabled={submitting}
         >
           <Text style={styles.submitButtonText}>
-            {submitting ? "Enregistrement..." : "Enregistrer le transfert"}
+            {submitting ? "Traitement..." : "Payer le transfert"}
           </Text>
         </TouchableOpacity>
       </View>

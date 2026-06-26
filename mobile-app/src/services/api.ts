@@ -149,10 +149,30 @@ class ApiService {
   }
 
   // Payment endpoints
-  async createPayment(paymentData: any) {
-    const response = await this.makeRequest('/api/payments', {
+  // Configuration Square pour le mobile (applicationId, locationId).
+  async getSquareConfig() {
+    const response = await this.makeRequest('/api/square-config');
+    return response.json();
+  }
+
+  // Règle un transfert déjà créé avec le nonce de carte obtenu via le SDK natif.
+  async payTransfer(
+    transferId: number,
+    paymentToken: string,
+    paymentMethod: 'card' | 'afterpay' = 'card',
+  ) {
+    const response = await this.makeRequest(`/api/transfers/${transferId}/pay`, {
       method: 'POST',
-      body: JSON.stringify(paymentData),
+      body: JSON.stringify({ paymentToken, paymentMethod }),
+    });
+    return response.json();
+  }
+
+  // Règle une commande déjà créée avec le nonce de carte.
+  async payOrder(orderId: number, paymentToken: string) {
+    const response = await this.makeRequest(`/api/orders/${orderId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({ paymentToken }),
     });
     return response.json();
   }

@@ -22,7 +22,8 @@
     "plugins": [
       "expo-status-bar",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "react-native-square-in-app-payments"
     ]
   }
 }
