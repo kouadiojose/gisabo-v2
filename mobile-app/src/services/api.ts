@@ -1,6 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'https://f3463d8a-3952-431c-97a1-a4d3cfd05c57-00-3sgbjbr0bblqq.riker.replit.dev';
+// URL de l'API. Par défaut l'API de production (Railway). Surchargeable au
+// build/dev via la variable d'environnement EXPO_PUBLIC_API_URL (Expo inline
+// automatiquement les variables préfixées EXPO_PUBLIC_).
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://gisabo-v2.up.railway.app'
+).replace(/\/+$/, '');
 
 class ApiService {
   private async getAuthToken(): Promise<string | null> {

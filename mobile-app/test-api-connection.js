@@ -1,7 +1,7 @@
 // Script de test pour vérifier la connexion API mobile -> backend
 const https = require('https');
 
-const API_BASE_URL = 'https://f3463d8a-3952-431c-97a1-a4d3cfd05c57-00-3sgbjbr0bblqq.riker.replit.dev';
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://gisabo-v2.up.railway.app').replace(/\/+$/, '');
 
 // Test de connexion à l'API
 async function testApiConnection() {

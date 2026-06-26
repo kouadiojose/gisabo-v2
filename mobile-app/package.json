@@ -1,12 +1,31 @@
 {
   "name": "gisabo-mobile",
   "version": "1.0.0",
-  "main": "App.tsx",
+  "main": "index.ts",
+  "private": true,
   "scripts": {
-    "start": "node start-mobile.js",
-    "dev": "node start-mobile.js"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "doctor": "expo-doctor"
   },
   "dependencies": {
-    "express": "^4.18.0"
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-masked-view/masked-view": "0.3.2",
+    "@react-navigation/bottom-tabs": "^7.18.3",
+    "@react-navigation/native": "^7.3.4",
+    "@react-navigation/stack": "^7.10.6",
+    "@types/react": "~19.2.14",
+    "expo": "^56.0.12",
+    "expo-font": "~56.0.7",
+    "expo-secure-store": "~56.0.4",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-gesture-handler": "~2.31.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "typescript": "~6.0.3"
   }
 }
