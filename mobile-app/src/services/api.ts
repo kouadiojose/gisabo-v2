@@ -121,7 +121,7 @@ class ApiService {
   }
 
   async getProductsByCategory(categoryId: number) {
-    const response = await this.makeRequest(`/api/products?category=${categoryId}`);
+    const response = await this.makeRequest(`/api/products?categoryId=${categoryId}`);
     return response.json();
   }
 
