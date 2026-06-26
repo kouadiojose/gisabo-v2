@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../lib/i18n';
 import apiService from '../services/api';
 import { payWithCard } from '../services/payment';
 
@@ -18,17 +19,22 @@ export default function CartScreen() {
   const { items, itemCount, total, addItem, decrement, removeItem, clear } =
     useCart();
   const { user } = useAuth();
+  const { t } = useI18n();
   const navigation = useNavigation<any>();
   const [checkingOut, setCheckingOut] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t('cart.title') });
+  }, [navigation, t]);
 
   const handleCheckout = () => {
     if (itemCount === 0 || checkingOut) return;
     Alert.alert(
-      'Finaliser la commande',
-      `Total : ${total.toFixed(2)} CAD\nProcéder au paiement par carte ?`,
+      t('cart.checkoutTitle'),
+      t('cart.checkoutMessage', { amount: total.toFixed(2) }),
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Payer', onPress: processCheckout },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.pay'), onPress: processCheckout },
       ],
     );
   };
@@ -56,12 +62,12 @@ export default function CartScreen() {
         });
       });
       clear();
-      Alert.alert('Commande payée', 'Merci ! Votre commande a été enregistrée.', [
+      Alert.alert(t('cart.paidTitle'), t('cart.paidMessage'), [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
       if (error?.message !== 'CANCELLED') {
-        Alert.alert('Erreur', error?.message || 'Le paiement a échoué');
+        Alert.alert(t('common.error'), error?.message || t('cart.paymentFailed'));
       }
     } finally {
       setCheckingOut(false);
@@ -72,12 +78,12 @@ export default function CartScreen() {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>🛒</Text>
-        <Text style={styles.emptyText}>Votre panier est vide</Text>
+        <Text style={styles.emptyText}>{t('cart.empty')}</Text>
         <TouchableOpacity
           style={styles.continueButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.continueButtonText}>Continuer mes achats</Text>
+          <Text style={styles.continueButtonText}>{t('cart.continueShopping')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -127,7 +133,7 @@ export default function CartScreen() {
                   style={styles.removeButton}
                   onPress={() => removeItem(line.product.id)}
                 >
-                  <Text style={styles.removeButtonText}>Retirer</Text>
+                  <Text style={styles.removeButtonText}>{t('cart.remove')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -141,7 +147,7 @@ export default function CartScreen() {
 
       <View style={styles.footer}>
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalLabel}>{t('cart.total')}</Text>
           <Text style={styles.totalValue}>{total.toFixed(2)} CAD</Text>
         </View>
         <TouchableOpacity
@@ -150,7 +156,9 @@ export default function CartScreen() {
           disabled={checkingOut}
         >
           <Text style={styles.payButtonText}>
-            {checkingOut ? 'Traitement...' : `Payer ${total.toFixed(2)} CAD`}
+            {checkingOut
+              ? t('cart.processing')
+              : t('cart.pay', { amount: total.toFixed(2) })}
           </Text>
         </TouchableOpacity>
       </View>

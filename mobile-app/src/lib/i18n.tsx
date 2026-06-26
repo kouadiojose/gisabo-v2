@@ -22,6 +22,7 @@ const translations: Record<Language, Record<string, any>> = {
       retry: 'Réessayer',
       error: 'Erreur',
       loading: 'Chargement...',
+      pay: 'Payer',
     },
     auth: {
       tagline: "Votre pont vers l'Afrique",
@@ -65,6 +66,88 @@ const translations: Record<Language, Record<string, any>> = {
       newTransfer: 'Nouveau transfert',
       mobileTopup: 'Recharge mobile',
     },
+    transfer: {
+      title: 'Nouveau transfert',
+      subtitle: "Envoyez de l'argent en Afrique",
+      recipientInfo: 'Informations du destinataire',
+      recipientNamePlaceholder: 'Nom complet du destinataire',
+      phonePlaceholder: 'Numéro de téléphone',
+      amountToSend: 'Montant à envoyer',
+      destinationCountry: 'Pays de destination',
+      deliveryMethod: 'Méthode de réception',
+      mobileMoney: 'Mobile Money',
+      bankTransfer: 'Virement bancaire',
+      summary: 'Résumé du transfert',
+      amountSent: 'Montant envoyé:',
+      fees: 'Frais:',
+      totalToPay: 'Total à payer:',
+      received: 'Montant reçu:',
+      payTransfer: 'Payer le transfert',
+      processing: 'Traitement...',
+      confirmTitle: 'Confirmer le transfert',
+      confirmMessage:
+        'Envoyer {amount} CAD à {name} ?\nVous allez procéder au paiement par carte.',
+      continue: 'Continuer',
+      paidTitle: 'Paiement réussi',
+      paidMessage:
+        'Votre transfert a été payé avec succès. Il apparaît dans votre historique.',
+      cancelledTitle: 'Paiement annulé',
+      cancelledMessage:
+        'Le transfert a été enregistré (en attente). Vous pourrez le régler plus tard.',
+      paymentFailed: 'Le paiement a échoué',
+      createFailed: 'Impossible de créer le transfert',
+      fillRequired: 'Veuillez remplir tous les champs obligatoires',
+      rateError: 'Impossible de récupérer le taux de change',
+    },
+    marketplace: {
+      subtitle: "Produits authentiques d'Afrique",
+      categories: 'Catégories',
+      all: 'Tout',
+      allProducts: 'Tous les produits',
+      noProducts: 'Aucun produit disponible pour le moment',
+      noProductsCategory: 'Aucun produit dans cette catégorie',
+      outOfStock: 'Rupture de stock',
+      addToCart: 'Ajouter au panier',
+      unavailable: 'Indisponible',
+      loadError: 'Impossible de charger les données du marketplace',
+    },
+    cart: {
+      title: 'Panier',
+      empty: 'Votre panier est vide',
+      continueShopping: 'Continuer mes achats',
+      remove: 'Retirer',
+      total: 'Total',
+      pay: 'Payer {amount} CAD',
+      processing: 'Traitement...',
+      checkoutTitle: 'Finaliser la commande',
+      checkoutMessage: 'Total : {amount} CAD\nProcéder au paiement par carte ?',
+      paidTitle: 'Commande payée',
+      paidMessage: 'Merci ! Votre commande a été enregistrée.',
+      paymentFailed: 'Le paiement a échoué',
+    },
+    detail: {
+      transferTitle: 'Détail du transfert',
+      orderTitle: 'Détail de la commande',
+      recipient: 'Bénéficiaire',
+      name: 'Nom',
+      phone: 'Téléphone',
+      destination: 'Destination',
+      delivery: 'Réception',
+      details: 'Détails',
+      transferNumber: 'N° de transfert',
+      exchangeRate: 'Taux de change',
+      fees: 'Frais',
+      receivedAmount: 'Montant reçu',
+      date: 'Date',
+      articles: 'Articles',
+      noArticles: 'Aucun article',
+      orderNumber: 'Commande',
+      transferNotFound: 'Transfert introuvable',
+      orderNotFound: 'Commande introuvable',
+      mobileMoney: 'Mobile Money',
+      bankAccount: 'Compte bancaire',
+      cash: 'Espèces',
+    },
     profile: {
       settings: 'Paramètres',
       language: 'Langue',
@@ -86,6 +169,7 @@ const translations: Record<Language, Record<string, any>> = {
       retry: 'Retry',
       error: 'Error',
       loading: 'Loading...',
+      pay: 'Pay',
     },
     auth: {
       tagline: 'Your bridge to Africa',
@@ -129,6 +213,88 @@ const translations: Record<Language, Record<string, any>> = {
       newTransfer: 'New transfer',
       mobileTopup: 'Mobile top-up',
     },
+    transfer: {
+      title: 'New transfer',
+      subtitle: 'Send money to Africa',
+      recipientInfo: 'Recipient information',
+      recipientNamePlaceholder: "Recipient's full name",
+      phonePlaceholder: 'Phone number',
+      amountToSend: 'Amount to send',
+      destinationCountry: 'Destination country',
+      deliveryMethod: 'Delivery method',
+      mobileMoney: 'Mobile Money',
+      bankTransfer: 'Bank transfer',
+      summary: 'Transfer summary',
+      amountSent: 'Amount sent:',
+      fees: 'Fees:',
+      totalToPay: 'Total to pay:',
+      received: 'Amount received:',
+      payTransfer: 'Pay transfer',
+      processing: 'Processing...',
+      confirmTitle: 'Confirm transfer',
+      confirmMessage:
+        'Send {amount} CAD to {name}?\nYou will proceed with card payment.',
+      continue: 'Continue',
+      paidTitle: 'Payment successful',
+      paidMessage:
+        'Your transfer was paid successfully. It appears in your history.',
+      cancelledTitle: 'Payment cancelled',
+      cancelledMessage:
+        'The transfer was saved (pending). You can pay for it later.',
+      paymentFailed: 'Payment failed',
+      createFailed: 'Unable to create the transfer',
+      fillRequired: 'Please fill in all required fields',
+      rateError: 'Unable to fetch the exchange rate',
+    },
+    marketplace: {
+      subtitle: 'Authentic products from Africa',
+      categories: 'Categories',
+      all: 'All',
+      allProducts: 'All products',
+      noProducts: 'No products available yet',
+      noProductsCategory: 'No products in this category',
+      outOfStock: 'Out of stock',
+      addToCart: 'Add to cart',
+      unavailable: 'Unavailable',
+      loadError: 'Unable to load marketplace data',
+    },
+    cart: {
+      title: 'Cart',
+      empty: 'Your cart is empty',
+      continueShopping: 'Continue shopping',
+      remove: 'Remove',
+      total: 'Total',
+      pay: 'Pay {amount} CAD',
+      processing: 'Processing...',
+      checkoutTitle: 'Complete order',
+      checkoutMessage: 'Total: {amount} CAD\nProceed with card payment?',
+      paidTitle: 'Order paid',
+      paidMessage: 'Thank you! Your order has been registered.',
+      paymentFailed: 'Payment failed',
+    },
+    detail: {
+      transferTitle: 'Transfer details',
+      orderTitle: 'Order details',
+      recipient: 'Recipient',
+      name: 'Name',
+      phone: 'Phone',
+      destination: 'Destination',
+      delivery: 'Delivery',
+      details: 'Details',
+      transferNumber: 'Transfer no.',
+      exchangeRate: 'Exchange rate',
+      fees: 'Fees',
+      receivedAmount: 'Amount received',
+      date: 'Date',
+      articles: 'Items',
+      noArticles: 'No items',
+      orderNumber: 'Order',
+      transferNotFound: 'Transfer not found',
+      orderNotFound: 'Order not found',
+      mobileMoney: 'Mobile Money',
+      bankAccount: 'Bank account',
+      cash: 'Cash',
+    },
     profile: {
       settings: 'Settings',
       language: 'Language',
@@ -143,7 +309,7 @@ const translations: Record<Language, Record<string, any>> = {
 interface I18nContextType {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
@@ -165,7 +331,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     SecureStore.setItemAsync('language', next).catch(() => {});
   };
 
-  const t = (key: string): string => {
+  const t = (
+    key: string,
+    params?: Record<string, string | number>,
+  ): string => {
     const value = key
       .split('.')
       .reduce<any>(
@@ -173,7 +342,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
           obj && typeof obj === 'object' ? obj[part] : undefined,
         translations[language],
       );
-    return typeof value === 'string' ? value : key;
+    if (typeof value !== 'string') return key;
+    if (!params) return value;
+    return Object.entries(params).reduce(
+      (str, [paramKey, paramValue]) =>
+        str.replace(`{${paramKey}}`, String(paramValue)),
+      value,
+    );
   };
 
   return (

@@ -13,6 +13,7 @@ import {
 import apiService from '../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { useCart } from '../contexts/CartContext';
+import { useI18n } from '../lib/i18n';
 
 // L'API renvoie des produits déjà localisés (champs `name` / `description`
 // selon la langue), et `price` provient d'une colonne numeric (donc string).
@@ -43,6 +44,7 @@ export default function MarketplaceScreen() {
   const [loading, setLoading] = useState(true);
   const { addItem, itemCount } = useCart();
   const navigation = useNavigation<any>();
+  const { t } = useI18n();
 
   useEffect(() => {
     fetchData();
@@ -59,7 +61,7 @@ export default function MarketplaceScreen() {
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (error) {
       console.error('Failed to fetch marketplace data:', error);
-      Alert.alert('Erreur', 'Impossible de charger les données du marketplace');
+      Alert.alert(t('common.error'), t('marketplace.loadError'));
     } finally {
       setLoading(false);
     }
@@ -89,8 +91,8 @@ export default function MarketplaceScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Marketplace</Text>
-        <Text style={styles.subtitle}>Produits authentiques d'Afrique</Text>
+        <Text style={styles.title}>{t('nav.marketplace')}</Text>
+        <Text style={styles.subtitle}>{t('marketplace.subtitle')}</Text>
         {itemCount > 0 && (
           <TouchableOpacity
             style={styles.cartButton}
@@ -110,7 +112,7 @@ export default function MarketplaceScreen() {
       >
         {/* Categories */}
         <View style={styles.categoriesSection}>
-          <Text style={styles.sectionTitle}>Catégories</Text>
+          <Text style={styles.sectionTitle}>{t('marketplace.categories')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.categoriesList}>
               <TouchableOpacity
@@ -121,7 +123,7 @@ export default function MarketplaceScreen() {
                 onPress={() => setSelectedCategory(null)}
               >
                 <Text style={styles.categoryIcon}>🏪</Text>
-                <Text style={styles.categoryName}>Tout</Text>
+                <Text style={styles.categoryName}>{t('marketplace.all')}</Text>
               </TouchableOpacity>
               
               {categories.map((category) => (
@@ -146,9 +148,9 @@ export default function MarketplaceScreen() {
         {/* Products */}
         <View style={styles.productsSection}>
           <Text style={styles.sectionTitle}>
-            {selectedCategory 
-              ? categories.find(c => c.id === selectedCategory)?.name || 'Produits'
-              : 'Tous les produits'
+            {selectedCategory
+              ? categories.find(c => c.id === selectedCategory)?.name || t('marketplace.allProducts')
+              : t('marketplace.allProducts')
             }
           </Text>
           
@@ -161,8 +163,8 @@ export default function MarketplaceScreen() {
               <Text style={styles.emptyIcon}>📦</Text>
               <Text style={styles.emptyText}>
                 {products.length === 0
-                  ? 'Aucun produit disponible pour le moment'
-                  : 'Aucun produit dans cette catégorie'
+                  ? t('marketplace.noProducts')
+                  : t('marketplace.noProductsCategory')
                 }
               </Text>
             </View>
@@ -184,7 +186,7 @@ export default function MarketplaceScreen() {
                     )}
                     {!product.inStock && (
                       <View style={styles.outOfStockOverlay}>
-                        <Text style={styles.outOfStockText}>Rupture de stock</Text>
+                        <Text style={styles.outOfStockText}>{t('marketplace.outOfStock')}</Text>
                       </View>
                     )}
                   </View>
@@ -210,7 +212,7 @@ export default function MarketplaceScreen() {
                     disabled={!product.inStock}
                   >
                     <Text style={styles.addToCartText}>
-                      {product.inStock ? 'Ajouter au panier' : 'Indisponible'}
+                      {product.inStock ? t('marketplace.addToCart') : t('marketplace.unavailable')}
                     </Text>
                   </TouchableOpacity>
                 </View>

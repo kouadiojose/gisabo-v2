@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { statusLabel, statusColor, formatDate } from '../utils/status';
+import { useI18n } from '../lib/i18n';
 
 interface TransferDetail {
   id: number;
@@ -19,19 +20,6 @@ interface TransferDetail {
   createdAt: string;
 }
 
-const deliveryLabel = (method?: string) => {
-  switch (method) {
-    case 'mobile':
-      return 'Mobile Money';
-    case 'bank':
-      return 'Compte bancaire';
-    case 'cash':
-      return 'Espèces';
-    default:
-      return method || '—';
-  }
-};
-
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
@@ -43,12 +31,31 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export default function TransferDetailScreen() {
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const { t } = useI18n();
   const transfer: TransferDetail | undefined = route.params?.transfer;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t('detail.transferTitle') });
+  }, [navigation, t]);
+
+  const deliveryLabel = (method?: string) => {
+    switch (method) {
+      case 'mobile':
+        return t('detail.mobileMoney');
+      case 'bank':
+        return t('detail.bankAccount');
+      case 'cash':
+        return t('detail.cash');
+      default:
+        return method || '—';
+    }
+  };
 
   if (!transfer) {
     return (
       <View style={styles.center}>
-        <Text style={styles.empty}>Transfert introuvable</Text>
+        <Text style={styles.empty}>{t('detail.transferNotFound')}</Text>
       </View>
     );
   }
@@ -72,36 +79,36 @@ export default function TransferDetailScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Bénéficiaire</Text>
-        <Row label="Nom" value={transfer.recipientName} />
+        <Text style={styles.cardTitle}>{t('detail.recipient')}</Text>
+        <Row label={t('detail.name')} value={transfer.recipientName} />
         {!!transfer.recipientPhone && (
-          <Row label="Téléphone" value={transfer.recipientPhone} />
+          <Row label={t('detail.phone')} value={transfer.recipientPhone} />
         )}
-        <Row label="Destination" value={transfer.destinationCountry} />
-        <Row label="Réception" value={deliveryLabel(transfer.deliveryMethod)} />
+        <Row label={t('detail.destination')} value={transfer.destinationCountry} />
+        <Row label={t('detail.delivery')} value={deliveryLabel(transfer.deliveryMethod)} />
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Détails</Text>
-        <Row label="N° de transfert" value={`#${transfer.id}`} />
+        <Text style={styles.cardTitle}>{t('detail.details')}</Text>
+        <Row label={t('detail.transferNumber')} value={`#${transfer.id}`} />
         {transfer.exchangeRate != null && (
-          <Row label="Taux de change" value={String(transfer.exchangeRate)} />
+          <Row label={t('detail.exchangeRate')} value={String(transfer.exchangeRate)} />
         )}
         {transfer.fees != null && (
           <Row
-            label="Frais"
+            label={t('detail.fees')}
             value={`${Number(transfer.fees).toFixed(2)} ${transfer.currency}`}
           />
         )}
         {transfer.receivedAmount != null && (
           <Row
-            label="Montant reçu"
+            label={t('detail.receivedAmount')}
             value={`${Number(transfer.receivedAmount).toFixed(0)} ${
               transfer.destinationCurrency || ''
             }`}
           />
         )}
-        <Row label="Date" value={formatDate(transfer.createdAt)} />
+        <Row label={t('detail.date')} value={formatDate(transfer.createdAt)} />
       </View>
     </ScrollView>
   );

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,10 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import apiService from '../services/api';
 import { statusLabel, statusColor, formatDate } from '../utils/status';
+import { useI18n } from '../lib/i18n';
 
 interface OrderDetail {
   id: number;
@@ -27,9 +28,15 @@ interface OrderItem {
 
 export default function OrderDetailScreen() {
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const { t } = useI18n();
   const order: OrderDetail | undefined = route.params?.order;
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t('detail.orderTitle') });
+  }, [navigation, t]);
 
   useEffect(() => {
     let mounted = true;
@@ -52,7 +59,7 @@ export default function OrderDetailScreen() {
   if (!order) {
     return (
       <View style={styles.center}>
-        <Text style={styles.empty}>Commande introuvable</Text>
+        <Text style={styles.empty}>{t('detail.orderNotFound')}</Text>
       </View>
     );
   }
@@ -70,16 +77,16 @@ export default function OrderDetailScreen() {
             {statusLabel(order.status)}
           </Text>
         </View>
-        <Text style={styles.orderNumber}>Commande #{order.id}</Text>
+        <Text style={styles.orderNumber}>{t('detail.orderNumber')} #{order.id}</Text>
         <Text style={styles.date}>{formatDate(order.createdAt)}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Articles</Text>
+        <Text style={styles.cardTitle}>{t('detail.articles')}</Text>
         {loading ? (
           <ActivityIndicator color="#FF6B35" style={{ paddingVertical: 16 }} />
         ) : items.length === 0 ? (
-          <Text style={styles.empty}>Aucun article</Text>
+          <Text style={styles.empty}>{t('detail.noArticles')}</Text>
         ) : (
           items.map((item) => (
             <View key={item.id} style={styles.itemRow}>
