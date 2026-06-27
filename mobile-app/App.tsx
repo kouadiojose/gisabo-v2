@@ -46,10 +46,10 @@ function TabNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#FF6B35',
+        tabBarActiveTintColor: '#1B5E9B',
         tabBarInactiveTintColor: 'gray',
         headerStyle: {
-          backgroundColor: '#FF6B35',
+          backgroundColor: '#1B5E9B',
         },
         headerTintColor: '#fff',
         headerTitleStyle: {
@@ -100,7 +100,7 @@ function AppNavigator() {
               options={{
                 headerShown: true,
                 title: 'Panier',
-                headerStyle: { backgroundColor: '#FF6B35' },
+                headerStyle: { backgroundColor: '#1B5E9B' },
                 headerTintColor: '#fff',
               }}
             />
@@ -110,7 +110,7 @@ function AppNavigator() {
               options={{
                 headerShown: true,
                 title: 'Détail du transfert',
-                headerStyle: { backgroundColor: '#FF6B35' },
+                headerStyle: { backgroundColor: '#1B5E9B' },
                 headerTintColor: '#fff',
               }}
             />
@@ -120,7 +120,7 @@ function AppNavigator() {
               options={{
                 headerShown: true,
                 title: 'Détail de la commande',
-                headerStyle: { backgroundColor: '#FF6B35' },
+                headerStyle: { backgroundColor: '#1B5E9B' },
                 headerTintColor: '#fff',
               }}
             />

@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     paddingTop: 60,
     paddingBottom: 30,
     alignItems: 'center',
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   langOptionActive: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
   },
   langText: {
     fontSize: 14,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
-    color: '#FF6B35',
+    color: '#1B5E9B',
     fontWeight: 'bold',
   },
   versionContainer: {

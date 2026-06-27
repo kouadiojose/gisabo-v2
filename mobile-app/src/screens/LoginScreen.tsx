@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#1B5E9B',
     marginBottom: 5,
   },
   tagline: {
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   loginButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   registerLinkStrong: {
-    color: '#FF6B35',
+    color: '#1B5E9B',
     fontWeight: 'bold',
   },
   featuresContainer: {

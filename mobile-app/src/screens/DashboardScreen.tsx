@@ -166,7 +166,7 @@ export default function DashboardScreen() {
         <Text style={styles.sectionTitle}>{t('dashboard.recentTransfers')}</Text>
         {loading ? (
           <View style={styles.emptyState}>
-            <ActivityIndicator color="#FF6B35" />
+            <ActivityIndicator color="#1B5E9B" />
           </View>
         ) : transfers.length === 0 ? (
           <View style={styles.emptyState}>
@@ -207,7 +207,7 @@ export default function DashboardScreen() {
         <Text style={styles.sectionTitle}>{t('dashboard.recentOrders')}</Text>
         {loading ? (
           <View style={styles.emptyState}>
-            <ActivityIndicator color="#FF6B35" />
+            <ActivityIndicator color="#1B5E9B" />
           </View>
         ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     padding: 20,
     paddingTop: 60,
   },
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#1B5E9B',
     marginBottom: 4,
   },
   statLabel: {

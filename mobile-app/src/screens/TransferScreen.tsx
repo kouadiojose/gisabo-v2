@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: "#1B5E9B",
     padding: 20,
     paddingTop: 60,
   },
@@ -402,8 +402,8 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   countryButtonSelected: {
-    borderColor: "#FF6B35",
-    backgroundColor: "#FFF5F1",
+    borderColor: "#1B5E9B",
+    backgroundColor: "#E8F0F8",
   },
   countryFlag: {
     fontSize: 20,
@@ -424,8 +424,8 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
   },
   methodButtonSelected: {
-    borderColor: "#FF6B35",
-    backgroundColor: "#FFF5F1",
+    borderColor: "#1B5E9B",
+    backgroundColor: "#E8F0F8",
   },
   methodIcon: {
     fontSize: 20,
@@ -469,10 +469,10 @@ const styles = StyleSheet.create({
   summaryValueTotal: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#FF6B35",
+    color: "#1B5E9B",
   },
   submitButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: "#1B5E9B",
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: "center",

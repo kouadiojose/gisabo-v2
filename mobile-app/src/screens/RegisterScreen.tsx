@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#1B5E9B',
     marginBottom: 10,
   },
   title: {
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   registerButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   loginLinkStrong: {
-    color: '#FF6B35',
+    color: '#1B5E9B',
     fontWeight: 'bold',
   },
 });

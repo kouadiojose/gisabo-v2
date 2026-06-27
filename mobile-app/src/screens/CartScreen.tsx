@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   payButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   continueButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,

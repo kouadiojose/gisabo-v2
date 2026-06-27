@@ -156,7 +156,7 @@ export default function MarketplaceScreen() {
           
           {loading ? (
             <View style={styles.emptyState}>
-              <ActivityIndicator size="large" color="#FF6B35" />
+              <ActivityIndicator size="large" color="#1B5E9B" />
             </View>
           ) : filteredProducts.length === 0 ? (
             <View style={styles.emptyState}>
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     padding: 20,
     paddingTop: 60,
     flexDirection: 'row',
@@ -295,8 +295,8 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   categoryButtonSelected: {
-    borderColor: '#FF6B35',
-    backgroundColor: '#FFF5F1',
+    borderColor: '#1B5E9B',
+    backgroundColor: '#E8F0F8',
   },
   categoryIcon: {
     fontSize: 24,
@@ -393,11 +393,11 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#1B5E9B',
     marginBottom: 10,
   },
   addToCartButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     padding: 8,
     alignItems: 'center',
   },

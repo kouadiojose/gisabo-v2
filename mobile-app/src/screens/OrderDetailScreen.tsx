@@ -84,7 +84,7 @@ export default function OrderDetailScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t('detail.articles')}</Text>
         {loading ? (
-          <ActivityIndicator color="#FF6B35" style={{ paddingVertical: 16 }} />
+          <ActivityIndicator color="#1B5E9B" style={{ paddingVertical: 16 }} />
         ) : items.length === 0 ? (
           <Text style={styles.empty}>{t('detail.noArticles')}</Text>
         ) : (
