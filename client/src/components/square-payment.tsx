@@ -361,7 +361,7 @@ export default function SquarePayment({
                     <span className="font-semibold text-gray-900">
                       {afterpayInstallmentStr} {currency}
                     </span>
-                    .
+                    , toutes les 2 semaines.
                   </p>
                   <div className="mt-3">
                     <span className="text-2xl font-bold text-gray-900">
@@ -467,7 +467,8 @@ export default function SquarePayment({
                 Payer en 4 fois avec Afterpay
               </h4>
               <p className="text-sm text-gray-600 mt-1">
-                4 versements de {afterpayInstallmentStr} {currency}, sans intérêt.
+                4 versements de {afterpayInstallmentStr} {currency}, toutes les 2
+                semaines, sans intérêt.
               </p>
             </div>
 
