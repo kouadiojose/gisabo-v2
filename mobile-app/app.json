@@ -4,6 +4,7 @@
     "slug": "gisabo-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
       "**/*"
@@ -13,16 +14,30 @@
       "bundleIdentifier": "com.gisabo.mobile"
     },
     "android": {
-      "package": "com.gisabo.mobile"
+      "package": "com.gisabo.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "scheme": "gisabo",
     "plugins": [
       "expo-status-bar",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "react-native-square-in-app-payments",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#ffffff",
+          "imageWidth": 250
+        }
+      ]
     ]
   }
 }

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../lib/i18n';
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
@@ -24,21 +25,22 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const { register } = useAuth();
+  const { t } = useI18n();
   const navigation = useNavigation<any>();
 
   const handleRegister = async () => {
     if (!firstName || !lastName || !username || !email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
+      Alert.alert(t('common.error'), t('auth.fillRequired'));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
+      Alert.alert(t('common.error'), t('auth.passwordTooShort'));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas');
+      Alert.alert(t('common.error'), t('auth.passwordsNoMatch'));
       return;
     }
 
@@ -54,7 +56,7 @@ export default function RegisterScreen() {
     setIsLoading(false);
 
     if (!result.ok) {
-      Alert.alert('Inscription impossible', result.error || 'Veuillez réessayer');
+      Alert.alert(t('auth.registerFailed'), result.error || t('common.retry'));
     }
     // En cas de succès, l'utilisateur est connecté automatiquement : le
     // navigateur bascule sur l'écran principal (via le contexte d'auth).
@@ -71,20 +73,20 @@ export default function RegisterScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.logoText}>GISABO</Text>
-          <Text style={styles.title}>Créer un compte</Text>
+          <Text style={styles.title}>{t('auth.registerTitle')}</Text>
         </View>
 
         <View style={styles.formContainer}>
           <View style={styles.row}>
             <TextInput
               style={[styles.input, styles.rowInput]}
-              placeholder="Prénom *"
+              placeholder={`${t('auth.firstName')} *`}
               value={firstName}
               onChangeText={setFirstName}
             />
             <TextInput
               style={[styles.input, styles.rowInput]}
-              placeholder="Nom *"
+              placeholder={`${t('auth.lastName')} *`}
               value={lastName}
               onChangeText={setLastName}
             />
@@ -92,7 +94,7 @@ export default function RegisterScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Nom d'utilisateur *"
+            placeholder={`${t('auth.username')} *`}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
@@ -101,7 +103,7 @@ export default function RegisterScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Email *"
+            placeholder={`${t('auth.email')} *`}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -111,7 +113,7 @@ export default function RegisterScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Téléphone (optionnel)"
+            placeholder={t('auth.phoneOptional')}
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
@@ -119,7 +121,7 @@ export default function RegisterScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Mot de passe *"
+            placeholder={`${t('auth.password')} *`}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -128,7 +130,7 @@ export default function RegisterScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Confirmer le mot de passe *"
+            placeholder={`${t('auth.confirmPassword')} *`}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
@@ -141,7 +143,7 @@ export default function RegisterScreen() {
             disabled={isLoading}
           >
             <Text style={styles.registerButtonText}>
-              {isLoading ? 'Création...' : 'Créer mon compte'}
+              {isLoading ? t('auth.creating') : t('auth.createMyAccount')}
             </Text>
           </TouchableOpacity>
 
@@ -150,8 +152,8 @@ export default function RegisterScreen() {
             onPress={() => navigation.navigate('Login')}
           >
             <Text style={styles.loginLinkText}>
-              Déjà un compte ?{' '}
-              <Text style={styles.loginLinkStrong}>Se connecter</Text>
+              {t('auth.haveAccount')}{' '}
+              <Text style={styles.loginLinkStrong}>{t('auth.signIn')}</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -178,7 +180,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#1B5E9B',
     marginBottom: 10,
   },
   title: {
@@ -208,7 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   registerButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   loginLinkStrong: {
-    color: '#FF6B35',
+    color: '#1B5E9B',
     fontWeight: 'bold',
   },
 });

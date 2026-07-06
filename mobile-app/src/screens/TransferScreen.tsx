@@ -9,6 +9,8 @@ import {
   Alert,
 } from "react-native";
 import apiService from "../services/api";
+import { payWithCard } from "../services/payment";
+import { useI18n } from "../lib/i18n";
 
 interface TransferFormData {
   recipientName: string;
@@ -38,6 +40,7 @@ export default function TransferScreen() {
   const [receivedAmount, setReceivedAmount] = useState(0);
   const [destinationCurrency, setDestinationCurrency] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { t } = useI18n();
 
   const countries: Country[] = [
     { code: "BI", name: "Burundi", currency: "BIF" },
@@ -46,8 +49,8 @@ export default function TransferScreen() {
 
   // Mêmes valeurs que l'app web ("mobile" / "bank") pour des données synchronisées.
   const deliveryMethods = [
-    { id: "mobile", label: "Mobile Money", icon: "📱" },
-    { id: "bank", label: "Virement bancaire", icon: "🏦" },
+    { id: "mobile", label: t("transfer.mobileMoney"), icon: "📱" },
+    { id: "bank", label: t("transfer.bankTransfer"), icon: "🏦" },
   ];
 
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function TransferScreen() {
       }
     } catch (error) {
       console.error("Failed to fetch exchange rate:", error);
-      Alert.alert("Erreur", "Impossible de récupérer le taux de change");
+      Alert.alert(t("common.error"), t("transfer.rateError"));
     }
   };
 
@@ -105,18 +108,35 @@ export default function TransferScreen() {
       !formData.amount ||
       !formData.destinationCountry
     ) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs obligatoires");
+      Alert.alert(t("common.error"), t("transfer.fillRequired"));
       return;
     }
 
     Alert.alert(
-      "Confirmer le transfert",
-      `Envoyer ${formData.amount} CAD à ${formData.recipientName} ?`,
+      t("transfer.confirmTitle"),
+      t("transfer.confirmMessage", {
+        amount: formData.amount,
+        name: formData.recipientName,
+      }),
       [
-        { text: "Annuler", style: "cancel" },
-        { text: "Confirmer", onPress: processTransfer },
+        { text: t("common.cancel"), style: "cancel" },
+        { text: t("transfer.continue"), onPress: processTransfer },
       ],
     );
+  };
+
+  const resetForm = () => {
+    setFormData({
+      recipientName: "",
+      recipientPhone: "",
+      amount: "",
+      destinationCountry: "",
+      deliveryMethod: "mobile",
+    });
+    setFees(0);
+    setReceivedAmount(0);
+    setExchangeRate(1);
+    setDestinationCurrency("");
   };
 
   const processTransfer = async () => {
@@ -126,10 +146,8 @@ export default function TransferScreen() {
 
     setSubmitting(true);
     try {
-      // Même payload que l'app web -> POST /api/transfers (statut "pending").
-      // Le paiement (Square) sera l'étape suivante; le transfert apparaît dès
-      // maintenant dans l'historique, synchronisé entre web et mobile.
-      await apiService.createTransfer({
+      // 1) Créer le transfert (même payload que le web) -> statut "pending".
+      const transfer = await apiService.createTransfer({
         amount: parseFloat(formData.amount),
         currency: "CAD",
         recipientName: formData.recipientName,
@@ -142,24 +160,21 @@ export default function TransferScreen() {
         deliveryMethod: formData.deliveryMethod,
       });
 
-      Alert.alert(
-        "Transfert enregistré",
-        "Votre transfert a été créé et apparaît dans votre historique. Le paiement sera bientôt disponible dans l'application.",
-      );
-
-      setFormData({
-        recipientName: "",
-        recipientPhone: "",
-        amount: "",
-        destinationCountry: "",
-        deliveryMethod: "mobile",
+      // 2) Paiement par carte via la feuille native Square, puis règlement
+      //    côté backend (POST /api/transfers/:id/pay) avec le nonce.
+      await payWithCard(async (nonce) => {
+        await apiService.payTransfer(transfer.id, nonce, "card");
       });
-      setFees(0);
-      setReceivedAmount(0);
-      setExchangeRate(1);
-      setDestinationCurrency("");
+
+      Alert.alert(t("transfer.paidTitle"), t("transfer.paidMessage"));
+      resetForm();
     } catch (error: any) {
-      Alert.alert("Erreur", error?.message || "Impossible de créer le transfert");
+      if (error?.message === "CANCELLED") {
+        Alert.alert(t("transfer.cancelledTitle"), t("transfer.cancelledMessage"));
+        resetForm();
+      } else {
+        Alert.alert(t("common.error"), error?.message || t("transfer.paymentFailed"));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -168,18 +183,18 @@ export default function TransferScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Nouveau transfert</Text>
-        <Text style={styles.subtitle}>Envoyez de l'argent en Afrique</Text>
+        <Text style={styles.title}>{t("transfer.title")}</Text>
+        <Text style={styles.subtitle}>{t("transfer.subtitle")}</Text>
       </View>
 
       <View style={styles.form}>
         {/* Recipient Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations du destinataire</Text>
+          <Text style={styles.sectionTitle}>{t("transfer.recipientInfo")}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Nom complet du destinataire"
+            placeholder={t("transfer.recipientNamePlaceholder")}
             value={formData.recipientName}
             onChangeText={(text) =>
               setFormData({ ...formData, recipientName: text })
@@ -188,7 +203,7 @@ export default function TransferScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Numéro de téléphone"
+            placeholder={t("transfer.phonePlaceholder")}
             value={formData.recipientPhone}
             onChangeText={(text) =>
               setFormData({ ...formData, recipientPhone: text })
@@ -199,7 +214,7 @@ export default function TransferScreen() {
 
         {/* Amount */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Montant à envoyer</Text>
+          <Text style={styles.sectionTitle}>{t("transfer.amountToSend")}</Text>
           <View style={styles.amountContainer}>
             <TextInput
               style={styles.amountInput}
@@ -214,7 +229,7 @@ export default function TransferScreen() {
 
         {/* Destination Country */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pays de destination</Text>
+          <Text style={styles.sectionTitle}>{t("transfer.destinationCountry")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.countryList}>
               {countries.map((country) => (
@@ -242,7 +257,7 @@ export default function TransferScreen() {
 
         {/* Delivery Method */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Méthode de réception</Text>
+          <Text style={styles.sectionTitle}>{t("transfer.deliveryMethod")}</Text>
           {deliveryMethods.map((method) => (
             <TouchableOpacity
               key={method.id}
@@ -264,23 +279,23 @@ export default function TransferScreen() {
         {/* Summary */}
         {formData.amount && (
           <View style={styles.summary}>
-            <Text style={styles.summaryTitle}>Résumé du transfert</Text>
+            <Text style={styles.summaryTitle}>{t("transfer.summary")}</Text>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Montant envoyé:</Text>
+              <Text style={styles.summaryLabel}>{t("transfer.amountSent")}</Text>
               <Text style={styles.summaryValue}>{formData.amount} CAD</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Frais:</Text>
+              <Text style={styles.summaryLabel}>{t("transfer.fees")}</Text>
               <Text style={styles.summaryValue}>{fees.toFixed(2)} CAD</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total à payer:</Text>
+              <Text style={styles.summaryLabel}>{t("transfer.totalToPay")}</Text>
               <Text style={styles.summaryValueTotal}>
                 {(parseFloat(formData.amount) + fees).toFixed(2)} CAD
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Montant reçu:</Text>
+              <Text style={styles.summaryLabel}>{t("transfer.received")}</Text>
               <Text style={styles.summaryValue}>
                 {receivedAmount.toFixed(0)} {destinationCurrency}
               </Text>
@@ -294,7 +309,7 @@ export default function TransferScreen() {
           disabled={submitting}
         >
           <Text style={styles.submitButtonText}>
-            {submitting ? "Enregistrement..." : "Enregistrer le transfert"}
+            {submitting ? t("transfer.processing") : t("transfer.payTransfer")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -308,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: "#1B5E9B",
     padding: 20,
     paddingTop: 60,
   },
@@ -387,8 +402,8 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   countryButtonSelected: {
-    borderColor: "#FF6B35",
-    backgroundColor: "#FFF5F1",
+    borderColor: "#1B5E9B",
+    backgroundColor: "#E8F0F8",
   },
   countryFlag: {
     fontSize: 20,
@@ -409,8 +424,8 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
   },
   methodButtonSelected: {
-    borderColor: "#FF6B35",
-    backgroundColor: "#FFF5F1",
+    borderColor: "#1B5E9B",
+    backgroundColor: "#E8F0F8",
   },
   methodIcon: {
     fontSize: 20,
@@ -454,10 +469,10 @@ const styles = StyleSheet.create({
   summaryValueTotal: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#FF6B35",
+    color: "#1B5E9B",
   },
   submitButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: "#1B5E9B",
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: "center",

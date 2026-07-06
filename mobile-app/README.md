@@ -85,8 +85,28 @@ eas build --platform android    # génère un .aab / .apk
 eas build --platform ios        # génère un .ipa (compte Apple Developer requis)
 ```
 
-> Les icônes/splash de marque ne sont pas encore fournies : l'app utilise les
-> visuels Expo par défaut. À ajouter dans `assets/` avant publication.
+> Les icônes et le splash de marque GISABO sont fournis dans `assets/`
+> (générés à partir du logo officiel) et configurés dans `app.json`.
+
+### 5. Paiement par carte (Square) — development build requis
+
+Le paiement utilise le **SDK natif Square In-App Payments**
+(`react-native-square-in-app-payments`). C'est un module natif : il **ne
+fonctionne pas dans Expo Go**. Pour le tester, il faut un *development build* :
+
+```bash
+# Build de développement (installe une app native sur le device/émulateur)
+eas build --profile development --platform android
+eas build --profile development --platform ios
+
+# Puis lancer le serveur de dev et ouvrir le build installé
+npx expo start --dev-client
+```
+
+Le reste de l'app (auth, données, formulaire de transfert, panier) reste
+testable dans **Expo Go** ; seule l'étape de paiement nécessite le dev build.
+La clé Square (applicationId / locationId) est fournie par le backend via
+`GET /api/square-config` — aucune valeur à coder en dur côté mobile.
 
 ## Connexion avec le backend
 
