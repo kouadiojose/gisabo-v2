@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# Le .gitignore racine ignore tous les package-lock.json ; on le ré-inclut ici
+# pour l'app mobile (reproductibilité des builds EAS).
+!package-lock.json
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native builds (générés par prebuild / EAS)
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# Environnement local (les valeurs par défaut sont dans le code)
+.env.local
+.env*.local
+
+# Logs & divers
+*.log
+.DS_Store

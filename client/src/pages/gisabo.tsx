@@ -50,7 +50,8 @@ export default function Gisabo() {
 
     // Détails de la transaction
     sendingCountry: "CA",
-    destinationCountry: "",
+    // Burundi est la seule destination disponible : pré-sélectionnée par défaut.
+    destinationCountry: "BI",
     sendingCurrency: "CAD",
     receivingCurrency: "",
     amount: "",
@@ -295,6 +296,7 @@ export default function Gisabo() {
       processPaymentMutation.mutate({
         transferId: createTransferMutation.data.id,
         paymentToken: mockPaymentToken,
+        paymentMethod: "card",
       });
     }
   };
@@ -498,8 +500,9 @@ export default function Gisabo() {
                             onValueChange={(value) =>
                               handleChange("destinationCountry", value)
                             }
+                            disabled
                           >
-                            <SelectTrigger className="mt-2 h-12 text-base">
+                            <SelectTrigger className="mt-2 h-12 text-base bg-gray-50 opacity-100 cursor-not-allowed">
                               <SelectValue
                                 placeholder={t(
                                   "gisabo.selectCountryPlaceholder",

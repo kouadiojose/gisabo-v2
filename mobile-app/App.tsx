@@ -7,18 +7,25 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import TransferScreen from './src/screens/TransferScreen';
 import MarketplaceScreen from './src/screens/MarketplaceScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import CartScreen from './src/screens/CartScreen';
+import TransferDetailScreen from './src/screens/TransferDetailScreen';
+import OrderDetailScreen from './src/screens/OrderDetailScreen';
 
-// Auth Context
+// Contexts
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { CartProvider } from './src/contexts/CartContext';
+import { I18nProvider, useI18n } from './src/lib/i18n';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabNavigator() {
+  const { t } = useI18n();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -39,10 +46,10 @@ function TabNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#FF6B35',
+        tabBarActiveTintColor: '#1B5E9B',
         tabBarInactiveTintColor: 'gray',
         headerStyle: {
-          backgroundColor: '#FF6B35',
+          backgroundColor: '#1B5E9B',
         },
         headerTintColor: '#fff',
         headerTitleStyle: {
@@ -50,10 +57,26 @@ function TabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Transfer" component={TransferScreen} />
-      <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{ tabBarLabel: t('nav.dashboard'), title: t('nav.dashboard') }}
+      />
+      <Tab.Screen
+        name="Transfer"
+        component={TransferScreen}
+        options={{ tabBarLabel: t('nav.transfer'), title: t('nav.transfer') }}
+      />
+      <Tab.Screen
+        name="Marketplace"
+        component={MarketplaceScreen}
+        options={{ tabBarLabel: t('nav.marketplace'), title: t('nav.marketplace') }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarLabel: t('nav.profile'), title: t('nav.profile') }}
+      />
     </Tab.Navigator>
   );
 }
@@ -69,9 +92,44 @@ function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="Main" component={TabNavigator} />
+          <>
+            <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen
+              name="Cart"
+              component={CartScreen}
+              options={{
+                headerShown: true,
+                title: 'Panier',
+                headerStyle: { backgroundColor: '#1B5E9B' },
+                headerTintColor: '#fff',
+              }}
+            />
+            <Stack.Screen
+              name="TransferDetail"
+              component={TransferDetailScreen}
+              options={{
+                headerShown: true,
+                title: 'Détail du transfert',
+                headerStyle: { backgroundColor: '#1B5E9B' },
+                headerTintColor: '#fff',
+              }}
+            />
+            <Stack.Screen
+              name="OrderDetail"
+              component={OrderDetailScreen}
+              options={{
+                headerShown: true,
+                title: 'Détail de la commande',
+                headerStyle: { backgroundColor: '#1B5E9B' },
+                headerTintColor: '#fff',
+              }}
+            />
+          </>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
@@ -80,9 +138,13 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <StatusBar style="auto" />
-      <AppNavigator />
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <CartProvider>
+          <StatusBar style="auto" />
+          <AppNavigator />
+        </CartProvider>
+      </AuthProvider>
+    </I18nProvider>
   );
 }

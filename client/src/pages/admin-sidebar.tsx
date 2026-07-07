@@ -16,6 +16,8 @@ import {
   Package, 
   TrendingUp,
   LogOut,
+  Send,
+  ShoppingCart,
   X
 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
@@ -53,6 +55,26 @@ interface Product {
   inStock: boolean;
 }
 
+interface AdminTransfer {
+  id: number;
+  amount: string;
+  currency: string;
+  recipientName: string;
+  destinationCountry: string;
+  deliveryMethod: string;
+  status: string;
+  createdAt: string;
+}
+
+interface AdminOrder {
+  id: number;
+  total: string;
+  currency: string;
+  status: string;
+  shippingAddress?: { firstName?: string; lastName?: string; phone?: string };
+  createdAt: string;
+}
+
 function isAdminAuthenticated(): boolean {
   const token = localStorage.getItem('adminToken');
   if (!token) return false;
@@ -65,7 +87,7 @@ function isAdminAuthenticated(): boolean {
   }
 }
 
-function getAdminAuthHeaders() {
+function getAdminAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('adminToken');
   if (token) {
     return { 'Authorization': `Bearer ${token}` };
@@ -111,19 +133,40 @@ export default function AdminSidebar() {
   const [editingRate, setEditingRate] = useState<ExchangeRate | null>(null);
 
   // Fetch data
-  const { data: exchangeRates } = useQuery({
+  const { data: exchangeRates } = useQuery<ExchangeRate[]>({
     queryKey: ["/api/admin/exchange-rates"],
     enabled: isAdminAuthenticated(),
   });
 
-  const { data: services } = useQuery({
+  const { data: services } = useQuery<Service[]>({
     queryKey: ["/api/admin/services"],
     enabled: isAdminAuthenticated(),
   });
 
-  const { data: products } = useQuery({
+  const { data: products } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     enabled: isAdminAuthenticated(),
+  });
+
+  // Requêtes admin authentifiées avec le token admin (getAdminAuthHeaders).
+  const { data: adminTransfers, isLoading: transfersLoading } = useQuery<AdminTransfer[]>({
+    queryKey: ["/api/admin/transfers"],
+    enabled: isAdminAuthenticated(),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/transfers", { headers: getAdminAuthHeaders() });
+      if (!res.ok) throw new Error("Erreur lors du chargement des transactions");
+      return res.json();
+    },
+  });
+
+  const { data: adminOrders, isLoading: ordersLoading } = useQuery<AdminOrder[]>({
+    queryKey: ["/api/admin/orders"],
+    enabled: isAdminAuthenticated(),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/orders", { headers: getAdminAuthHeaders() });
+      if (!res.ok) throw new Error("Erreur lors du chargement des commandes");
+      return res.json();
+    },
   });
 
   // Upload image function
@@ -415,6 +458,30 @@ export default function AdminSidebar() {
           >
             <TrendingUp className="h-5 w-5" />
             Taux de Change
+          </button>
+
+          <button
+            onClick={() => setActiveSection("transactions")}
+            className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+              activeSection === "transactions"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Send className="h-5 w-5" />
+            Transactions
+          </button>
+
+          <button
+            onClick={() => setActiveSection("orders")}
+            className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+              activeSection === "orders"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <ShoppingCart className="h-5 w-5" />
+            Commandes
           </button>
         </nav>
 
@@ -921,6 +988,96 @@ export default function AdminSidebar() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeSection === "transactions" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Transactions</h2>
+                <p className="text-gray-600">Tous les transferts d'argent effectués sur la plateforme</p>
+              </div>
+
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  {transfersLoading ? (
+                    <p className="p-6 text-gray-500">Chargement…</p>
+                  ) : !adminTransfers || adminTransfers.length === 0 ? (
+                    <p className="p-6 text-gray-500">Aucune transaction pour le moment.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-gray-600">
+                        <tr>
+                          <th className="px-4 py-3">#</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Bénéficiaire</th>
+                          <th className="px-4 py-3">Montant</th>
+                          <th className="px-4 py-3">Destination</th>
+                          <th className="px-4 py-3">Méthode</th>
+                          <th className="px-4 py-3">Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminTransfers.map((tr) => (
+                          <tr key={tr.id} className="border-t border-gray-100">
+                            <td className="px-4 py-3 font-medium">#{tr.id}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{new Date(tr.createdAt).toLocaleString("fr-FR")}</td>
+                            <td className="px-4 py-3">{tr.recipientName}</td>
+                            <td className="px-4 py-3 font-semibold">{Number(tr.amount).toFixed(2)} {tr.currency}</td>
+                            <td className="px-4 py-3">{tr.destinationCountry}</td>
+                            <td className="px-4 py-3">{tr.deliveryMethod}</td>
+                            <td className="px-4 py-3"><Badge variant="secondary">{tr.status}</Badge></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeSection === "orders" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Commandes</h2>
+                <p className="text-gray-600">Tous les achats de produits effectués sur la plateforme</p>
+              </div>
+
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  {ordersLoading ? (
+                    <p className="p-6 text-gray-500">Chargement…</p>
+                  ) : !adminOrders || adminOrders.length === 0 ? (
+                    <p className="p-6 text-gray-500">Aucune commande pour le moment.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-left text-gray-600">
+                        <tr>
+                          <th className="px-4 py-3">#</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Client</th>
+                          <th className="px-4 py-3">Téléphone</th>
+                          <th className="px-4 py-3">Total</th>
+                          <th className="px-4 py-3">Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminOrders.map((od) => (
+                          <tr key={od.id} className="border-t border-gray-100">
+                            <td className="px-4 py-3 font-medium">#{od.id}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{new Date(od.createdAt).toLocaleString("fr-FR")}</td>
+                            <td className="px-4 py-3">{[od.shippingAddress?.firstName, od.shippingAddress?.lastName].filter(Boolean).join(" ") || "—"}</td>
+                            <td className="px-4 py-3">{od.shippingAddress?.phone || "—"}</td>
+                            <td className="px-4 py-3 font-semibold">{Number(od.total).toFixed(2)} {od.currency}</td>
+                            <td className="px-4 py-3"><Badge variant="secondary">{od.status}</Badge></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </CardContent>
               </Card>
             </div>

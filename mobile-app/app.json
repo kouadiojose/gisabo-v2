@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -19,18 +14,30 @@
       "bundleIdentifier": "com.gisabo.mobile"
     },
     "android": {
+      "package": "com.gisabo.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "package": "com.gisabo.mobile"
+      }
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "gisabo",
     "plugins": [
-      "expo-router"
-    ],
-    "scheme": "gisabo"
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-font",
+      "react-native-square-in-app-payments",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#ffffff",
+          "imageWidth": 250
+        }
+      ]
+    ]
   }
 }

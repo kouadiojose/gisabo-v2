@@ -1,6 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'https://f3463d8a-3952-431c-97a1-a4d3cfd05c57-00-3sgbjbr0bblqq.riker.replit.dev';
+// URL de l'API. Par défaut l'API de production (Railway). Surchargeable au
+// build/dev via la variable d'environnement EXPO_PUBLIC_API_URL (Expo inline
+// automatiquement les variables préfixées EXPO_PUBLIC_).
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://gisabo-v2.up.railway.app'
+).replace(/\/+$/, '');
 
 class ApiService {
   private async getAuthToken(): Promise<string | null> {
@@ -25,7 +30,23 @@ class ApiService {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Le serveur renvoie tantôt du JSON { message }, tantôt du texte brut
+      // (ex: 401 "Identifiants invalides"). On extrait un message lisible.
+      let message = `Erreur ${response.status}`;
+      try {
+        const text = await response.text();
+        if (text) {
+          try {
+            const json = JSON.parse(text);
+            message = json.message || json.error || text;
+          } catch {
+            message = text;
+          }
+        }
+      } catch {
+        // corps illisible : on garde le message par défaut
+      }
+      throw new Error(message);
     }
 
     return response;
@@ -36,6 +57,21 @@ class ApiService {
     const response = await this.makeRequest('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
+    });
+    return response.json();
+  }
+
+  async register(userData: {
+    firstName: string;
+    lastName: string;
+    username: string;
+    email: string;
+    password: string;
+    phone?: string;
+  }) {
+    const response = await this.makeRequest('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
     });
     return response.json();
   }
@@ -78,6 +114,11 @@ class ApiService {
     return response.json();
   }
 
+  async getOrderItems(orderId: number) {
+    const response = await this.makeRequest(`/api/orders/${orderId}/items`);
+    return response.json();
+  }
+
   // Products endpoints
   async getProducts() {
     const response = await this.makeRequest('/api/products');
@@ -85,7 +126,7 @@ class ApiService {
   }
 
   async getProductsByCategory(categoryId: number) {
-    const response = await this.makeRequest(`/api/products?category=${categoryId}`);
+    const response = await this.makeRequest(`/api/products?categoryId=${categoryId}`);
     return response.json();
   }
 
@@ -113,10 +154,30 @@ class ApiService {
   }
 
   // Payment endpoints
-  async createPayment(paymentData: any) {
-    const response = await this.makeRequest('/api/payments', {
+  // Configuration Square pour le mobile (applicationId, locationId).
+  async getSquareConfig() {
+    const response = await this.makeRequest('/api/square-config');
+    return response.json();
+  }
+
+  // Règle un transfert déjà créé avec le nonce de carte obtenu via le SDK natif.
+  async payTransfer(
+    transferId: number,
+    paymentToken: string,
+    paymentMethod: 'card' | 'afterpay' = 'card',
+  ) {
+    const response = await this.makeRequest(`/api/transfers/${transferId}/pay`, {
       method: 'POST',
-      body: JSON.stringify(paymentData),
+      body: JSON.stringify({ paymentToken, paymentMethod }),
+    });
+    return response.json();
+  }
+
+  // Règle une commande déjà créée avec le nonce de carte.
+  async payOrder(orderId: number, paymentToken: string) {
+    const response = await this.makeRequest(`/api/orders/${orderId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({ paymentToken }),
     });
     return response.json();
   }

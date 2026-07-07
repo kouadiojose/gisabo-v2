@@ -10,26 +10,30 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../lib/i18n';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useI18n();
+  const navigation = useNavigation<any>();
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      Alert.alert(t('common.error'), t('auth.fillFields'));
       return;
     }
 
     setIsLoading(true);
-    const success = await login(username, password);
+    const result = await login(username, password);
     setIsLoading(false);
 
-    if (!success) {
-      Alert.alert('Erreur', 'Nom d\'utilisateur ou mot de passe incorrect');
+    if (!result.ok) {
+      Alert.alert(t('common.error'), result.error || t('auth.badCredentials'));
     }
   };
 
@@ -42,43 +46,49 @@ export default function LoginScreen() {
         {/* Logo */}
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>GISABO</Text>
-          <Text style={styles.tagline}>Votre pont vers l'Afrique</Text>
+          <Text style={styles.tagline}>{t('auth.tagline')}</Text>
         </View>
 
         {/* Login Form */}
         <View style={styles.formContainer}>
-          <Text style={styles.title}>Connexion</Text>
-          
+          <Text style={styles.title}>{t('auth.loginTitle')}</Text>
+
           <TextInput
             style={styles.input}
-            placeholder="Nom d'utilisateur"
+            placeholder={t('auth.identifier')}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          
+
           <TextInput
             style={styles.input}
-            placeholder="Mot de passe"
+            placeholder={t('auth.password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
           />
-          
+
           <TouchableOpacity
             style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
           >
             <Text style={styles.loginButtonText}>
-              {isLoading ? 'Connexion...' : 'Se connecter'}
+              {isLoading ? t('auth.signingIn') : t('auth.signIn')}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
+          <TouchableOpacity
+            style={styles.registerLink}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={styles.registerLinkText}>
+              {t('auth.noAccount')}{' '}
+              <Text style={styles.registerLinkStrong}>{t('auth.createAccount')}</Text>
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -119,7 +129,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#1B5E9B',
     marginBottom: 5,
   },
   tagline: {
@@ -148,7 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   loginButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -162,13 +172,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  forgotPassword: {
+  registerLink: {
     alignItems: 'center',
     marginTop: 20,
   },
-  forgotPasswordText: {
-    color: '#FF6B35',
-    fontSize: 16,
+  registerLinkText: {
+    color: '#666',
+    fontSize: 15,
+  },
+  registerLinkStrong: {
+    color: '#1B5E9B',
+    fontWeight: 'bold',
   },
   featuresContainer: {
     flexDirection: 'row',

@@ -8,16 +8,20 @@ import {
   Image,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import apiService from '../services/api';
+import { useNavigation } from '@react-navigation/native';
+import { useCart } from '../contexts/CartContext';
+import { useI18n } from '../lib/i18n';
 
+// L'API renvoie des produits déjà localisés (champs `name` / `description`
+// selon la langue), et `price` provient d'une colonne numeric (donc string).
 interface Product {
   id: number;
-  nameFr: string;
-  nameEn: string;
-  descriptionFr: string;
-  descriptionEn: string;
-  price: number;
+  name: string;
+  description: string;
+  price: number | string;
   currency: string;
   imageUrl?: string;
   inStock: boolean;
@@ -37,7 +41,10 @@ export default function MarketplaceScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [cart, setCart] = useState<{ [key: number]: number }>({});
+  const [loading, setLoading] = useState(true);
+  const { addItem, itemCount } = useCart();
+  const navigation = useNavigation<any>();
+  const { t } = useI18n();
 
   useEffect(() => {
     fetchData();
@@ -49,12 +56,14 @@ export default function MarketplaceScreen() {
         apiService.getProducts(),
         apiService.getCategories(),
       ]);
-      
-      setProducts(productsData);
-      setCategories(categoriesData);
+
+      setProducts(Array.isArray(productsData) ? productsData : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (error) {
       console.error('Failed to fetch marketplace data:', error);
-      Alert.alert('Erreur', 'Impossible de charger les données du marketplace');
+      Alert.alert(t('common.error'), t('marketplace.loadError'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -64,29 +73,33 @@ export default function MarketplaceScreen() {
     setRefreshing(false);
   };
 
-  const addToCart = (productId: number) => {
-    setCart(prev => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + 1
-    }));
+  const addToCart = (product: Product) => {
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      currency: product.currency,
+      imageUrl: product.imageUrl,
+    });
   };
 
   const filteredProducts = selectedCategory
     ? products.filter(product => product.categoryId === selectedCategory)
     : products;
 
-  const cartItemCount = Object.values(cart).reduce((sum, count) => sum + count, 0);
-
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Marketplace</Text>
-        <Text style={styles.subtitle}>Produits authentiques d'Afrique</Text>
-        {cartItemCount > 0 && (
-          <TouchableOpacity style={styles.cartButton}>
+        <Text style={styles.title}>{t('nav.marketplace')}</Text>
+        <Text style={styles.subtitle}>{t('marketplace.subtitle')}</Text>
+        {itemCount > 0 && (
+          <TouchableOpacity
+            style={styles.cartButton}
+            onPress={() => navigation.navigate('Cart')}
+          >
             <Text style={styles.cartIcon}>🛒</Text>
-            <Text style={styles.cartCount}>{cartItemCount}</Text>
+            <Text style={styles.cartCount}>{itemCount}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -99,7 +112,7 @@ export default function MarketplaceScreen() {
       >
         {/* Categories */}
         <View style={styles.categoriesSection}>
-          <Text style={styles.sectionTitle}>Catégories</Text>
+          <Text style={styles.sectionTitle}>{t('marketplace.categories')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.categoriesList}>
               <TouchableOpacity
@@ -110,7 +123,7 @@ export default function MarketplaceScreen() {
                 onPress={() => setSelectedCategory(null)}
               >
                 <Text style={styles.categoryIcon}>🏪</Text>
-                <Text style={styles.categoryName}>Tout</Text>
+                <Text style={styles.categoryName}>{t('marketplace.all')}</Text>
               </TouchableOpacity>
               
               {categories.map((category) => (
@@ -135,19 +148,23 @@ export default function MarketplaceScreen() {
         {/* Products */}
         <View style={styles.productsSection}>
           <Text style={styles.sectionTitle}>
-            {selectedCategory 
-              ? categories.find(c => c.id === selectedCategory)?.name || 'Produits'
-              : 'Tous les produits'
+            {selectedCategory
+              ? categories.find(c => c.id === selectedCategory)?.name || t('marketplace.allProducts')
+              : t('marketplace.allProducts')
             }
           </Text>
           
-          {filteredProducts.length === 0 ? (
+          {loading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color="#1B5E9B" />
+            </View>
+          ) : filteredProducts.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>📦</Text>
               <Text style={styles.emptyText}>
-                {products.length === 0 
-                  ? 'Aucun produit disponible pour le moment'
-                  : 'Aucun produit dans cette catégorie'
+                {products.length === 0
+                  ? t('marketplace.noProducts')
+                  : t('marketplace.noProductsCategory')
                 }
               </Text>
             </View>
@@ -169,20 +186,20 @@ export default function MarketplaceScreen() {
                     )}
                     {!product.inStock && (
                       <View style={styles.outOfStockOverlay}>
-                        <Text style={styles.outOfStockText}>Rupture de stock</Text>
+                        <Text style={styles.outOfStockText}>{t('marketplace.outOfStock')}</Text>
                       </View>
                     )}
                   </View>
                   
                   <View style={styles.productInfo}>
                     <Text style={styles.productName} numberOfLines={2}>
-                      {product.nameFr}
+                      {product.name}
                     </Text>
                     <Text style={styles.productDescription} numberOfLines={2}>
-                      {product.descriptionFr}
+                      {product.description}
                     </Text>
                     <Text style={styles.productPrice}>
-                      {product.price.toFixed(2)} {product.currency}
+                      {Number(product.price).toFixed(2)} {product.currency}
                     </Text>
                   </View>
                   
@@ -191,11 +208,11 @@ export default function MarketplaceScreen() {
                       styles.addToCartButton,
                       !product.inStock && styles.addToCartButtonDisabled,
                     ]}
-                    onPress={() => addToCart(product.id)}
+                    onPress={() => addToCart(product)}
                     disabled={!product.inStock}
                   >
                     <Text style={styles.addToCartText}>
-                      {product.inStock ? 'Ajouter au panier' : 'Indisponible'}
+                      {product.inStock ? t('marketplace.addToCart') : t('marketplace.unavailable')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -214,7 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     padding: 20,
     paddingTop: 60,
     flexDirection: 'row',
@@ -278,8 +295,8 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   categoryButtonSelected: {
-    borderColor: '#FF6B35',
-    backgroundColor: '#FFF5F1',
+    borderColor: '#1B5E9B',
+    backgroundColor: '#E8F0F8',
   },
   categoryIcon: {
     fontSize: 24,
@@ -376,11 +393,11 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#1B5E9B',
     marginBottom: 10,
   },
   addToCartButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     padding: 8,
     alignItems: 'center',
   },

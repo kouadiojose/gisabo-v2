@@ -108,6 +108,28 @@ export const translations = {
       supportDescription: "Vous pouvez choisir de payer plus pour soutenir nos producteurs",
       cancel: "Annuler",
     },
+    cart: {
+      title: "Panier",
+      continueShopping: "Continuer mes achats",
+      items: "article",
+      itemsPlural: "articles",
+      unitPrice: "Prix unitaire :",
+      orderSummary: "Résumé de la commande",
+      subtotal: "Sous-total",
+      shipping: "Livraison",
+      free: "Gratuite",
+      total: "Total",
+      placeOrder: "Passer la commande",
+      termsText: "En passant commande, vous acceptez nos conditions d'utilisation.",
+      emptyCart: "Votre panier est vide",
+      emptyCartDesc: "Découvrez nos produits et ajoutez-les à votre panier.",
+      productRemoved: "Produit retiré",
+      productRemovedDesc: "Le produit a été retiré de votre panier.",
+      loginRequired: "Connexion requise",
+      loginRequiredDesc: "Vous devez être connecté pour passer commande.",
+      emptyCartError: "Panier vide",
+      emptyCartErrorDesc: "Veuillez ajouter des produits avant de commander.",
+    },
     gisabo: {
       loginRequired: "Connexion requise",
       loginRequiredDesc: "Vous devez être connecté pour effectuer un transfert",
@@ -285,7 +307,7 @@ export const translations = {
         address: {
           title: "Adresse",
           description: "Venez nous rencontrer à nos bureaux.",
-          info: "9, rue Amherst, Gatineau, QC"
+          info: "341 Rue Jules-Bordet, Gatineau, QC, Ottawa"
         }
       },
       toast: {
@@ -437,6 +459,28 @@ export const translations = {
       supportMore: "Amount you wish to pay (CAD)",
       supportDescription: "You can choose to pay more to support our producers",
       cancel: "Cancel",
+    },
+    cart: {
+      title: "Cart",
+      continueShopping: "Continue Shopping",
+      items: "item",
+      itemsPlural: "items",
+      unitPrice: "Unit price:",
+      orderSummary: "Order Summary",
+      subtotal: "Subtotal",
+      shipping: "Shipping",
+      free: "Free",
+      total: "Total",
+      placeOrder: "Place Order",
+      termsText: "By placing your order, you agree to our terms of service.",
+      emptyCart: "Your cart is empty",
+      emptyCartDesc: "Browse our products and add them to your cart.",
+      productRemoved: "Product removed",
+      productRemovedDesc: "The product has been removed from your cart.",
+      loginRequired: "Login required",
+      loginRequiredDesc: "You must be logged in to place an order.",
+      emptyCartError: "Empty cart",
+      emptyCartErrorDesc: "Please add products before ordering.",
     },
     gisabo: {
       loginRequired: "Login Required",
@@ -615,7 +659,7 @@ export const translations = {
         address: {
           title: "Address",
           description: "Come meet us at our offices.",
-          info: "9 Amherst St, Gatineau, QC"
+          info: "341 Rue Jules-Bordet, Gatineau, QC, Ottawa"
         }
       },
       toast: {

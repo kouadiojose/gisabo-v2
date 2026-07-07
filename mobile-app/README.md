@@ -57,17 +57,56 @@ npm install
 
 ### 2. Configuration de l'API
 
-Modifiez le fichier `src/services/api.ts` :
+Par défaut, l'application pointe vers l'API de production (Railway) :
+`https://gisabo-v2.up.railway.app`.
 
-```typescript
-const API_BASE_URL = 'https://votre-domaine-replit.replit.app';
+Pour cibler une autre API (locale, staging…), définissez la variable
+d'environnement `EXPO_PUBLIC_API_URL` (Expo l'inline automatiquement) :
+
+```bash
+EXPO_PUBLIC_API_URL=http://localhost:5000 npx expo start
 ```
 
 ### 3. Démarrage du développement
 
 ```bash
-npx expo start
+cd mobile-app
+npx expo start          # puis scanner le QR code avec Expo Go (iOS/Android)
+npx expo start --android
+npx expo start --ios
 ```
+
+### 4. Builds Android / iOS (EAS Build, sans Mac)
+
+```bash
+npm install -g eas-cli
+eas login                       # compte Expo (gratuit)
+eas build --platform android    # génère un .aab / .apk
+eas build --platform ios        # génère un .ipa (compte Apple Developer requis)
+```
+
+> Les icônes et le splash de marque GISABO sont fournis dans `assets/`
+> (générés à partir du logo officiel) et configurés dans `app.json`.
+
+### 5. Paiement par carte (Square) — development build requis
+
+Le paiement utilise le **SDK natif Square In-App Payments**
+(`react-native-square-in-app-payments`). C'est un module natif : il **ne
+fonctionne pas dans Expo Go**. Pour le tester, il faut un *development build* :
+
+```bash
+# Build de développement (installe une app native sur le device/émulateur)
+eas build --profile development --platform android
+eas build --profile development --platform ios
+
+# Puis lancer le serveur de dev et ouvrir le build installé
+npx expo start --dev-client
+```
+
+Le reste de l'app (auth, données, formulaire de transfert, panier) reste
+testable dans **Expo Go** ; seule l'étape de paiement nécessite le dev build.
+La clé Square (applicationId / locationId) est fournie par le backend via
+`GET /api/square-config` — aucune valeur à coder en dur côté mobile.
 
 ## Connexion avec le backend
 

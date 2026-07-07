@@ -6,13 +6,18 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
+import { statusLabel } from '../utils/status';
+import { useI18n } from '../lib/i18n';
 
+// amount / total proviennent de colonnes numeric -> renvoyées en string par l'API.
 interface Transfer {
   id: number;
-  amount: number;
+  amount: number | string;
   currency: string;
   recipientName: string;
   destinationCountry: string;
@@ -22,7 +27,7 @@ interface Transfer {
 
 interface Order {
   id: number;
-  total: number;
+  total: number | string;
   currency: string;
   status: string;
   createdAt: string;
@@ -30,9 +35,12 @@ interface Order {
 
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const { t } = useI18n();
+  const navigation = useNavigation<any>();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalSent: 0,
     monthlyTransfers: 0,
@@ -50,31 +58,35 @@ export default function DashboardScreen() {
         apiService.getOrders(),
       ]);
       
-      setTransfers(transfersData);
-      setOrders(ordersData);
+      const transfersList: Transfer[] = Array.isArray(transfersData) ? transfersData : [];
+      const ordersList: Order[] = Array.isArray(ordersData) ? ordersData : [];
+      setTransfers(transfersList);
+      setOrders(ordersList);
 
-      // Calculate stats
-      const totalSent = transfersData.reduce((sum: number, transfer: Transfer) => {
-        return transfer.status === 'completed' ? sum + transfer.amount : sum;
+      // Calculate stats (les montants arrivent en string -> coercition numérique)
+      const totalSent = transfersList.reduce((sum: number, transfer: Transfer) => {
+        return transfer.status === 'completed' ? sum + Number(transfer.amount) : sum;
       }, 0);
 
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
       
-      const monthlyTransfers = transfersData.filter((transfer: Transfer) => {
+      const monthlyTransfers = transfersList.filter((transfer: Transfer) => {
         const transferDate = new Date(transfer.createdAt);
-        return transferDate.getMonth() === currentMonth && 
+        return transferDate.getMonth() === currentMonth &&
                transferDate.getFullYear() === currentYear;
       }).length;
 
       setStats({
         totalSent,
         monthlyTransfers,
-        totalOrders: ordersData.length,
+        totalOrders: ordersList.length,
       });
     } catch (error) {
       console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,48 +119,72 @@ export default function DashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          Bonjour, {user?.firstName || 'Utilisateur'} !
+          {t('dashboard.greeting')}, {user?.firstName || 'Utilisateur'} !
         </Text>
         <Text style={styles.subtitle}>
-          Bienvenue sur votre tableau de bord GISABO
+          {t('dashboard.subtitle')}
         </Text>
+      </View>
+
+      {/* Statistiques */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.totalSent.toFixed(2)}</Text>
+          <Text style={styles.statLabel}>{t('dashboard.totalSent')}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.monthlyTransfers}</Text>
+          <Text style={styles.statLabel}>{t('dashboard.monthly')}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{stats.totalOrders}</Text>
+          <Text style={styles.statLabel}>{t('dashboard.orders')}</Text>
+        </View>
       </View>
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
-        <Text style={styles.sectionTitle}>Actions rapides</Text>
+        <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
         <View style={styles.actionButtons}>
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.actionIcon}>💸</Text>
-            <Text style={styles.actionText}>Nouveau transfert</Text>
+            <Text style={styles.actionText}>{t('dashboard.newTransfer')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.actionIcon}>🛒</Text>
-            <Text style={styles.actionText}>Marketplace</Text>
+            <Text style={styles.actionText}>{t('nav.marketplace')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton}>
             <Text style={styles.actionIcon}>📱</Text>
-            <Text style={styles.actionText}>Recharge mobile</Text>
+            <Text style={styles.actionText}>{t('dashboard.mobileTopup')}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Recent Transfers */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Transferts récents</Text>
-        {transfers.length === 0 ? (
+        <Text style={styles.sectionTitle}>{t('dashboard.recentTransfers')}</Text>
+        {loading ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Aucun transfert récent</Text>
+            <ActivityIndicator color="#1B5E9B" />
+          </View>
+        ) : transfers.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>{t('dashboard.noTransfers')}</Text>
           </View>
         ) : (
           transfers.slice(0, 3).map((transfer) => (
-            <View key={transfer.id} style={styles.transactionCard}>
+            <TouchableOpacity
+              key={transfer.id}
+              style={styles.transactionCard}
+              onPress={() => navigation.navigate('TransferDetail', { transfer })}
+            >
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionTitle}>
-                  Vers {transfer.recipientName}
+                  {t('dashboard.toRecipient')} {transfer.recipientName}
                 </Text>
                 <Text style={styles.transactionDetails}>
-                  {transfer.amount} {transfer.currency} → {transfer.destinationCountry}
+                  {Number(transfer.amount).toFixed(2)} {transfer.currency} → {transfer.destinationCountry}
                 </Text>
               </View>
               <View style={styles.transactionStatus}>
@@ -158,30 +194,38 @@ export default function DashboardScreen() {
                     { color: getStatusColor(transfer.status) },
                   ]}
                 >
-                  {transfer.status}
+                  {statusLabel(transfer.status)}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
 
       {/* Recent Orders */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Commandes récentes</Text>
-        {orders.length === 0 ? (
+        <Text style={styles.sectionTitle}>{t('dashboard.recentOrders')}</Text>
+        {loading ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Aucune commande récente</Text>
+            <ActivityIndicator color="#1B5E9B" />
+          </View>
+        ) : orders.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>{t('dashboard.noOrders')}</Text>
           </View>
         ) : (
           orders.slice(0, 3).map((order) => (
-            <View key={order.id} style={styles.transactionCard}>
+            <TouchableOpacity
+              key={order.id}
+              style={styles.transactionCard}
+              onPress={() => navigation.navigate('OrderDetail', { order })}
+            >
               <View style={styles.transactionInfo}>
                 <Text style={styles.transactionTitle}>
-                  Commande #{order.id}
+                  {t('dashboard.order')} #{order.id}
                 </Text>
                 <Text style={styles.transactionDetails}>
-                  {order.total} {order.currency}
+                  {Number(order.total).toFixed(2)} {order.currency}
                 </Text>
               </View>
               <View style={styles.transactionStatus}>
@@ -191,10 +235,10 @@ export default function DashboardScreen() {
                     { color: getStatusColor(order.status) },
                   ]}
                 >
-                  {order.status}
+                  {statusLabel(order.status)}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
@@ -208,7 +252,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#1B5E9B',
     padding: 20,
     paddingTop: 60,
   },
@@ -222,6 +266,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     opacity: 0.9,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 15,
+    marginTop: 15,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1B5E9B',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center',
   },
   quickActions: {
     backgroundColor: '#fff',

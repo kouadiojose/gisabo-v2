@@ -32,6 +32,12 @@ export default function SquarePayment({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("card");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Verrou de confirmation : une fois le paiement soumis (carte tokenisée),
+  // on bloque le formulaire pour empêcher tout double paiement et on affiche
+  // un écran de confirmation jusqu'à la redirection vers la page de succès.
+  const [submitted, setSubmitted] = useState(false);
+  const [serverStarted, setServerStarted] = useState(false);
+  const [showIssue, setShowIssue] = useState(false);
   const cardContainerRef = useRef<HTMLDivElement>(null);
   const afterpayContainerRef = useRef<HTMLDivElement>(null);
 
@@ -114,6 +120,7 @@ export default function SquarePayment({
               try {
                 const result = await afterpayInstance.tokenize();
                 if (result.status === "OK") {
+                  setSubmitted(true);
                   onPaymentSuccess(result.token, "afterpay");
                 } else {
                   const errorMessage = result.errors?.length > 0
@@ -155,14 +162,44 @@ export default function SquarePayment({
     };
   }, [amount, currency, afterpayTotalStr]);
 
+  // Dès que la requête serveur (création de la commande / du transfert) démarre,
+  // on mémorise qu'elle a bien été lancée.
+  useEffect(() => {
+    if (isProcessing) setServerStarted(true);
+  }, [isProcessing]);
+
+  // Si le serveur a répondu (isProcessing repasse à false) sans que la page ait
+  // été redirigée, c'est que la confirmation a échoué APRÈS l'envoi du paiement.
+  // On laisse une fenêtre de grâce de 1,5 s : en cas de succès, la redirection
+  // démonte le composant avant l'affichage du message d'erreur (pas de
+  // clignotement intempestif).
+  useEffect(() => {
+    if (submitted && serverStarted && !isProcessing) {
+      const timer = setTimeout(() => setShowIssue(true), 1500);
+      return () => clearTimeout(timer);
+    }
+    setShowIssue(false);
+  }, [submitted, serverStarted, isProcessing]);
+
+  const confirming = submitted && !showIssue;
+  const postPaymentIssue = submitted && showIssue;
+
+  const handleRetry = () => {
+    setShowIssue(false);
+    setServerStarted(false);
+    setSubmitted(false);
+    setIsSubmitting(false);
+  };
+
   const handleCardPayment = async () => {
-    if (!card || isSubmitting) return;
+    if (!card || isSubmitting || submitted) return;
 
     setIsSubmitting(true);
     try {
       const result = await card.tokenize();
 
       if (result.status === "OK") {
+        setSubmitted(true);
         onPaymentSuccess(result.token, "card");
       } else {
         const errorMessage = result.errors?.length > 0
@@ -191,7 +228,51 @@ export default function SquarePayment({
       </CardHeader>
 
       <CardContent className="p-6 sm:p-8">
-        <div className="space-y-6">
+        {/* Écran de confirmation / d'erreur après soumission du paiement */}
+        {submitted && (
+          <div className="mb-2">
+            {confirming ? (
+              <div className="text-center py-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">
+                  Confirmation de votre paiement en cours…
+                </h3>
+                <p className="mt-2 text-gray-600">
+                  Merci de patienter quelques instants. Ne fermez pas et ne
+                  rechargez pas cette page, et ne soumettez pas le paiement à
+                  nouveau. Vous allez être redirigé automatiquement.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-6 text-center">
+                <i className="fas fa-exclamation-triangle text-amber-600 text-3xl mb-3"></i>
+                <h3 className="text-lg font-semibold text-amber-900">
+                  La confirmation n'a pas abouti
+                </h3>
+                <p className="mt-2 text-sm text-amber-800">
+                  Votre paiement a peut-être tout de même été traité.{" "}
+                  <strong>
+                    Pour éviter d'être débité deux fois, ne payez pas à nouveau
+                    immédiatement.
+                  </strong>{" "}
+                  Si un montant a été prélevé, contactez-nous au{" "}
+                  <strong>+1 (613) 762-6686</strong> ou{" "}
+                  <strong>gisabonet@gmail.com</strong> et nous confirmerons votre
+                  transaction.
+                </p>
+                <Button
+                  onClick={handleRetry}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  Réessayer le paiement
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className={submitted ? "hidden" : "space-y-6"}>
           {/* Sélecteur de méthode de paiement — deux options côte à côte */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
@@ -280,7 +361,7 @@ export default function SquarePayment({
                     <span className="font-semibold text-gray-900">
                       {afterpayInstallmentStr} {currency}
                     </span>
-                    .
+                    , toutes les 2 semaines.
                   </p>
                   <div className="mt-3">
                     <span className="text-2xl font-bold text-gray-900">
@@ -386,7 +467,8 @@ export default function SquarePayment({
                 Payer en 4 fois avec Afterpay
               </h4>
               <p className="text-sm text-gray-600 mt-1">
-                4 versements de {afterpayInstallmentStr} {currency}, sans intérêt.
+                4 versements de {afterpayInstallmentStr} {currency}, toutes les 2
+                semaines, sans intérêt.
               </p>
             </div>
 
