@@ -1153,6 +1153,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Liste de TOUS les transferts (vue admin)
+  app.get("/api/admin/transfers", requireAdmin, async (req: any, res) => {
+    try {
+      const allTransfers = await storage.getAllTransfers();
+      res.json(allTransfers);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Liste de TOUTES les commandes / achats de produits (vue admin)
+  app.get("/api/admin/orders", requireAdmin, async (req: any, res) => {
+    try {
+      const allOrders = await storage.getAllOrders();
+      res.json(allOrders);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/admin/exchange-rates", requireAdmin, async (req: any, res) => {
     try {
       const rateData = insertExchangeRateSchema.parse(req.body);
