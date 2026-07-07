@@ -1,7 +1,3 @@
-[build]
-builder = "NIXPACKS"
-dockerfilePath = ""
-
 [deploy]
 startCommand = "node migrate.js; npm start"
 healthcheckPath = "/api/health"
