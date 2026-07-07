@@ -1,38 +1,129 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import type { Transfer, User, Order, OrderItem } from "@shared/schema";
 import { storage } from "./storage";
 
-// Configuration SMTP (PlanetHoster par défaut). Surchargeable via variables
-// d'environnement pour la production.
-// IMPORTANT: le port 25 est bloqué par la plupart des hébergeurs cloud
-// (Railway inclus). On utilise donc le port 465 (SSL) par défaut.
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || "465", 10);
-const SMTP_HOST = process.env.SMTP_HOST || "hc-weeklygrowndoe-eu.n0c.com";
-const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    // 465 => SSL (secure=true) ; 587/25 => STARTTLS (secure=false)
-    secure: process.env.SMTP_SECURE
-        ? process.env.SMTP_SECURE === "true"
-        : SMTP_PORT === 465,
-    auth: {
-        user: process.env.SMTP_USER || "noreply@gisabogroup.ca",
-        pass: process.env.SMTP_PASS || "Wtz4rtEYe89D!",
-    },
-    tls: {
-        rejectUnauthorized: false,
-    },
-});
+// Adresses (surchargeables via variables d'environnement)
+const ADMIN_EMAIL = process.env.MAIL_ADMIN || "gisabonet@gmail.com";
+const FROM_EMAIL = process.env.MAIL_FROM || "noreply@gisabogroup.ca";
 
-// Vérifie la connexion SMTP au démarrage et logge un diagnostic clair.
-transporter.verify().then(
-    () => console.log(`✅ [EMAIL] SMTP prêt (${SMTP_HOST}:${SMTP_PORT})`),
-    (err) => console.error(`🚨 [EMAIL] SMTP indisponible (${SMTP_HOST}:${SMTP_PORT}):`, err?.message || err),
-);
+type EmailInput = {
+    from: string;
+    to: string | string[];
+    subject: string;
+    text?: string;
+    html?: string;
+};
 
-// Email de l'administrateur (à configurer selon vos besoins)
-const ADMIN_EMAIL = "gisabonet@gmail.com";
-const FROM_EMAIL = "noreply@gisabogroup.ca";
+// ---------------------------------------------------------------------------
+// Fournisseur d'envoi.
+// Railway (et la plupart des hébergeurs cloud) BLOQUE le SMTP sortant
+// (timeout sur 25/465/587). On privilégie donc l'API HTTP de Resend
+// (port 443, jamais bloqué) dès que RESEND_API_KEY est défini. À défaut,
+// repli sur SMTP (nodemailer) pour le développement local.
+// ---------------------------------------------------------------------------
+let sendEmail: (input: EmailInput) => Promise<void>;
+
+if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    sendEmail = async (input) => {
+        const { error } = await resend.emails.send({
+            from: input.from,
+            to: Array.isArray(input.to) ? input.to : [input.to],
+            subject: input.subject,
+            html: input.html || undefined,
+            text: input.text || "",
+        });
+        if (error) {
+            throw new Error(error.message || "Erreur d'envoi Resend");
+        }
+    };
+    console.log("✅ [EMAIL] Fournisseur: Resend (API HTTP, port 443)");
+} else {
+    const SMTP_PORT = parseInt(process.env.SMTP_PORT || "465", 10);
+    const SMTP_HOST = process.env.SMTP_HOST || "hc-weeklygrowndoe-eu.n0c.com";
+    const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: process.env.SMTP_SECURE
+            ? process.env.SMTP_SECURE === "true"
+            : SMTP_PORT === 465,
+        auth: {
+            user: process.env.SMTP_USER || "noreply@gisabogroup.ca",
+            pass: process.env.SMTP_PASS || "Wtz4rtEYe89D!",
+        },
+        tls: { rejectUnauthorized: false },
+    });
+    sendEmail = async (input) => {
+        await transporter.sendMail(input);
+    };
+    transporter.verify().then(
+        () => console.log(`✅ [EMAIL] SMTP prêt (${SMTP_HOST}:${SMTP_PORT})`),
+        (err) =>
+            console.error(
+                `🚨 [EMAIL] SMTP indisponible (${SMTP_HOST}:${SMTP_PORT}) — définissez RESEND_API_KEY pour utiliser l'API HTTP:`,
+                err?.message || err,
+            ),
+    );
+}
+
+// Listes de diffusion interne pour les notifications de transfert.
+// Le destinataire dépend du mode de livraison choisi par l'expéditeur.
+const TRANSFER_NOTIFICATION_EMAILS = {
+    mobileMoney: [
+        "gisabonet@gmail.com",
+        "yeoyedjande@gmail.com",
+        "montnini@yahoo.fr",
+        "gisabotransfert1@gmail.com",
+        "kouadiojose@gmail.com",
+        "niyungekonadege@gmail.com",
+    ],
+    bankAccount: [
+        "gisabonet@gmail.com",
+        "yeoyedjande@gmail.com",
+        "niyungekonadege@gmail.com",
+        "gisabotransfert1@gmail.com",
+        "montnini@yahoo.fr",
+        "kouadiojose@gmail.com",
+    ],
+};
+
+// Liste de diffusion interne pour les notifications d'achat de produits.
+const ORDER_NOTIFICATION_EMAILS = [
+    "gisabonet@gmail.com",
+    "yeoyedjande@gmail.com",
+    "montnini@yahoo.fr",
+    "gisabotransfert1@gmail.com",
+    "kouadiojose@gmail.com",
+    "niyungekonadege@gmail.com",
+];
+
+// Sélectionne la liste de diffusion en fonction du mode de livraison.
+// Tolère les valeurs brutes ("mobile"/"bank") comme traduites
+// ("Mobile Money"/"Compte bancaire"). Par défaut : Mobile Money.
+function getTransferNotificationEmails(deliveryMethod?: string): string[] {
+    const method = (deliveryMethod || "").toLowerCase();
+    if (method.includes("bank") || method.includes("banc")) {
+        return TRANSFER_NOTIFICATION_EMAILS.bankAccount;
+    }
+    return TRANSFER_NOTIFICATION_EMAILS.mobileMoney;
+}
+
+// Affiche le mode de livraison en clair, quelle que soit la valeur stockée
+// (brute "mobile"/"bank"/"cash" ou déjà traduite).
+function formatDeliveryMethod(deliveryMethod?: string): string {
+    const method = (deliveryMethod || "").toLowerCase();
+    if (method.includes("bank") || method.includes("banc")) {
+        return "Compte bancaire";
+    }
+    if (method.includes("cash") || method.includes("espèce") || method.includes("especes")) {
+        return "Cash";
+    }
+    if (method.includes("mobile")) {
+        return "Mobile money";
+    }
+    return deliveryMethod || "Mobile money";
+}
 
 export async function sendTransferConfirmationEmail(
     transfer: Transfer,
@@ -151,7 +242,7 @@ export async function sendTransferConfirmationEmail(
                 }
                 <div class="info-row">
                     <span class="label">Mode livraison:</span>
-                    <span>${transfer.deliveryMethod}</span>
+                    <span>${formatDeliveryMethod(transfer.deliveryMethod)}</span>
                 </div>
                 ${
                     transfer.bankName
@@ -256,7 +347,7 @@ INFORMATIONS DE TRANSACTION
 Numéro REF: ${refNumber}
 ${amountInfo}
 ${rateInfo}
-Mode livraison: ${transfer.deliveryMethod}
+Mode livraison: ${formatDeliveryMethod(transfer.deliveryMethod)}
 ${transfer.bankName ? `Nom de la banque: ${transfer.bankName}` : ""}
 ${transfer.accountNumber ? `Numéro de compte: ${transfer.accountNumber}` : ""}
 ID Paiement Square: ${paymentId}
@@ -267,7 +358,7 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
     `;
 
         // Envoi de l'email au client
-        await transporter.sendMail({
+        await sendEmail({
             from: `TRANSFERT GISABO <${FROM_EMAIL}>`,
             to: user.email,
             subject: `Confirmation de transfert Gisabo - ${refNumber}`,
@@ -275,10 +366,10 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
             html: emailHTML,
         });
 
-        // Envoi d'une copie à l'administrateur
-        await transporter.sendMail({
+        // Envoi d'une copie à l'équipe interne (liste selon le mode de livraison)
+        await sendEmail({
             from: `TRANSFERT GISABO <${FROM_EMAIL}>`,
-            to: [ADMIN_EMAIL],
+            to: getTransferNotificationEmails(transfer.deliveryMethod),
             subject: `Nouveau transfert - ${refNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVEAU TRANSFERT EFFECTUÉ\n\n${emailText}`,
             html: emailHTML,
@@ -365,8 +456,11 @@ export async function sendOrderConfirmationEmail(
         
         <div class="content">
             <p><strong>Cher(e) ${user.firstName} ${user.lastName},</strong></p>
-            <p>Merci pour votre achat sur Gisabo. Votre commande a été confirmée et sera traitée dans les plus brefs délais.</p>
-            
+            <p>Votre paiement a été effectué.</p>
+            <div class="total-highlight" style="background:#e8f5e8; color:#2E8B57;">
+                📞 Merci de nous contacter au +257 79 48 81 79 pour le retrait de vos produits.
+            </div>
+
             <div class="section">
                 <h3>📦 Détails de la commande</h3>
                 <div class="info-row">
@@ -447,7 +541,8 @@ export async function sendOrderConfirmationEmail(
         const emailText = `
 Cher(e) ${user.firstName} ${user.lastName},
 
-Merci pour votre achat sur Gisabo Marketplace. Votre commande a été confirmée et sera traitée dans les plus brefs délais.
+Votre paiement a été effectué.
+Merci de nous contacter au +257 79 48 81 79 pour le retrait de vos produits.
 
 DÉTAILS DE LA COMMANDE
 Numéro de commande: ${orderNumber}
@@ -473,7 +568,7 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
     `;
 
         // Envoi de l'email au client
-        await transporter.sendMail({
+        await sendEmail({
             from: `ACHAT GISABO <${FROM_EMAIL}>`,
             to: user.email,
             subject: `Confirmation d'achat Gisabo - ${orderNumber}`,
@@ -481,10 +576,10 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
             html: emailHTML,
         });
 
-        // Envoi d'une copie à l'administrateur
-        await transporter.sendMail({
-            from: FROM_EMAIL,
-            to: [ADMIN_EMAIL],
+        // Envoi d'une copie à l'équipe interne
+        await sendEmail({
+            from: `ACHAT GISABO <${FROM_EMAIL}>`,
+            to: ORDER_NOTIFICATION_EMAILS,
             subject: `Nouvelle commande - ${orderNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVELLE COMMANDE EFFECTUÉE\n\n${emailText}`,
             html: emailHTML,
