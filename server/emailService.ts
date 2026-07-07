@@ -2,19 +2,33 @@ import nodemailer from "nodemailer";
 import type { Transfer, User, Order, OrderItem } from "@shared/schema";
 import { storage } from "./storage";
 
-// Configuration SMTP PlanetHoster
+// Configuration SMTP (PlanetHoster par défaut). Surchargeable via variables
+// d'environnement pour la production.
+// IMPORTANT: le port 25 est bloqué par la plupart des hébergeurs cloud
+// (Railway inclus). On utilise donc le port 465 (SSL) par défaut.
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || "465", 10);
+const SMTP_HOST = process.env.SMTP_HOST || "hc-weeklygrowndoe-eu.n0c.com";
 const transporter = nodemailer.createTransport({
-    host: "hc-weeklygrowndoe-eu.n0c.com",
-    port: 25,
-    secure: false, // true pour 465, false pour 587 ou 25
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    // 465 => SSL (secure=true) ; 587/25 => STARTTLS (secure=false)
+    secure: process.env.SMTP_SECURE
+        ? process.env.SMTP_SECURE === "true"
+        : SMTP_PORT === 465,
     auth: {
-        user: "noreply@gisabogroup.ca",
-        pass: "Wtz4rtEYe89D!",
+        user: process.env.SMTP_USER || "noreply@gisabogroup.ca",
+        pass: process.env.SMTP_PASS || "Wtz4rtEYe89D!",
     },
     tls: {
         rejectUnauthorized: false,
     },
 });
+
+// Vérifie la connexion SMTP au démarrage et logge un diagnostic clair.
+transporter.verify().then(
+    () => console.log(`✅ [EMAIL] SMTP prêt (${SMTP_HOST}:${SMTP_PORT})`),
+    (err) => console.error(`🚨 [EMAIL] SMTP indisponible (${SMTP_HOST}:${SMTP_PORT}):`, err?.message || err),
+);
 
 // Email de l'administrateur (à configurer selon vos besoins)
 const ADMIN_EMAIL = "gisabonet@gmail.com";

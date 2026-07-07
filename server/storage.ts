@@ -25,12 +25,14 @@ export interface IStorage {
 
   // Transfers
   getTransfersByUser(userId: number): Promise<Transfer[]>;
+  getAllTransfers(): Promise<Transfer[]>;
   getTransfer(id: number): Promise<Transfer | undefined>;
   createTransfer(transfer: InsertTransfer): Promise<Transfer>;
   updateTransferStatus(id: number, status: string, squarePaymentId?: string): Promise<Transfer | undefined>;
 
   // Orders
   getOrdersByUser(userId: number): Promise<Order[]>;
+  getAllOrders(): Promise<Order[]>;
   getOrder(id: number): Promise<Order | undefined>;
   getOrderBySquarePaymentId(squarePaymentId: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
@@ -146,6 +148,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(transfers).where(eq(transfers.userId, userId)).orderBy(desc(transfers.createdAt));
   }
 
+  async getAllTransfers(): Promise<Transfer[]> {
+    return await db.select().from(transfers).orderBy(desc(transfers.createdAt));
+  }
+
   async getTransfer(id: number): Promise<Transfer | undefined> {
     const [transfer] = await db.select().from(transfers).where(eq(transfers.id, id));
     return transfer || undefined;
@@ -171,6 +177,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(transfers.id, id))
       .returning();
     return transfer || undefined;
+  }
+
+  async getAllOrders(): Promise<Order[]> {
+    return await db.select().from(orders).orderBy(desc(orders.createdAt));
   }
 
   async getOrdersByUser(userId: number): Promise<Order[]> {
