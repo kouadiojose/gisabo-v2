@@ -1,6 +1,6 @@
 import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, paymentMethods, emailCampaigns, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit, type PaymentMethod, type InsertPaymentMethod, type EmailCampaign } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 export interface VisitStats {
   totalPageViews: number;
@@ -70,6 +70,7 @@ export interface IStorage {
 
   // Mailing / campagnes email
   getMailableUsers(): Promise<{ id: number; email: string; firstName: string }[]>;
+  getUsersByEmails(emails: string[]): Promise<{ id: number; email: string; emailOptOut: boolean }[]>;
   setEmailOptOut(userId: number): Promise<void>;
   createCampaign(data: { subject: string; body: string; audience: string; total: number }): Promise<EmailCampaign>;
   updateCampaign(id: number, data: Partial<{ sent: number; failed: number; status: string }>): Promise<void>;
@@ -326,6 +327,21 @@ export class DatabaseStorage implements IStorage {
       .select({ id: users.id, email: users.email, firstName: users.firstName })
       .from(users)
       .where(eq(users.emailOptOut, false));
+  }
+
+  async getUsersByEmails(
+    emails: string[],
+  ): Promise<{ id: number; email: string; emailOptOut: boolean }[]> {
+    if (emails.length === 0) return [];
+    const lowered = emails.map((e) => e.toLowerCase());
+    return await db
+      .select({
+        id: users.id,
+        email: users.email,
+        emailOptOut: users.emailOptOut,
+      })
+      .from(users)
+      .where(inArray(sql`lower(${users.email})`, lowered));
   }
 
   async setEmailOptOut(userId: number): Promise<void> {

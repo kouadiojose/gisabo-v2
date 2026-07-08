@@ -13,6 +13,7 @@ import { authenticator } from "otplib";
 import QRCode from "qrcode";
 import { parse as parseCsv } from "csv-parse/sync";
 import iconv from "iconv-lite";
+import sanitizeHtml from "sanitize-html";
 import { sendTransferConfirmationEmail, sendOrderConfirmationEmail, sendCampaignEmail, buildCampaignHtml } from "./emailService";
 import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
@@ -1736,12 +1737,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === Mailing (campagnes email aux utilisateurs) ===
 
-  const escapeHtml = (s: string) =>
-    s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+  // Nettoie le HTML riche de l'admin (autorise la mise en forme de base)
+  const sanitizeMessage = (raw: string): string =>
+    sanitizeHtml(String(raw || ""), {
+      allowedTags: [
+        "p", "br", "b", "strong", "i", "em", "u", "s", "a", "ul", "ol",
+        "li", "span", "h1", "h2", "h3", "h4", "blockquote", "div",
+      ],
+      allowedAttributes: { a: ["href", "target", "rel"], span: ["style"], div: ["style"], p: ["style"] },
+      allowedSchemes: ["http", "https", "mailto"],
+    });
+  const toPlainText = (raw: string): string =>
+    sanitizeHtml(String(raw || ""), { allowedTags: [], allowedAttributes: {} });
+
+  const parseEmailList = (raw: string): string[] => {
+    const found = String(raw || "")
+      .split(/[\s,;]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+    return Array.from(new Set(found));
+  };
 
   // Historique des campagnes
   app.get("/api/admin/campaigns", requireAdmin, async (req: any, res) => {
@@ -1752,68 +1767,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Envoyer une campagne (ou un test)
+  // Envoyer une campagne (ou un test). Audience : "all" ou "selected".
   app.post("/api/admin/campaigns", requireAdmin, async (req: any, res) => {
     try {
-      const { subject, message, test, testEmail } = req.body;
+      const { subject, message, audience, recipients, test, testEmail } =
+        req.body;
       if (!subject || !message) {
         return res.status(400).json({ message: "Objet et message requis" });
       }
-      const messageHtml = escapeHtml(String(message)).replace(/\n/g, "<br>");
+      const messageHtml = sanitizeMessage(message);
+      const plain = toPlainText(message);
       const appUrl = process.env.APP_URL || "https://gisabo-v2.up.railway.app";
 
       // Mode test : un seul email vers l'adresse indiquée
       if (test) {
         if (!testEmail) {
-          return res
-            .status(400)
-            .json({ message: "Adresse de test requise" });
+          return res.status(400).json({ message: "Adresse de test requise" });
         }
         await sendCampaignEmail({
           to: testEmail,
           subject: `[TEST] ${subject}`,
           html: buildCampaignHtml(messageHtml),
-          text: message,
+          text: plain,
         });
         return res.json({ test: true });
       }
 
-      const recipients = await storage.getMailableUsers();
-      if (recipients.length === 0) {
+      // Construction de la liste de destinataires
+      let targets: { email: string; userId?: number }[] = [];
+      let audienceLabel = "all";
+
+      if (audience === "selected") {
+        const emails = parseEmailList(recipients);
+        if (emails.length === 0) {
+          return res
+            .status(400)
+            .json({ message: "Aucune adresse email valide fournie" });
+        }
+        const registered = await storage.getUsersByEmails(emails);
+        const byEmail = new Map(
+          registered.map((u) => [u.email.toLowerCase(), u]),
+        );
+        for (const e of emails) {
+          const u = byEmail.get(e);
+          if (u) {
+            if (u.emailOptOut) continue; // désabonné → exclu
+            targets.push({ email: u.email, userId: u.id });
+          } else {
+            targets.push({ email: e }); // adresse externe choisie par l'admin
+          }
+        }
+        audienceLabel = `${targets.length} adresse(s) choisie(s)`;
+      } else {
+        const mailable = await storage.getMailableUsers();
+        targets = mailable.map((u) => ({ email: u.email, userId: u.id }));
+        audienceLabel = "all";
+      }
+
+      if (targets.length === 0) {
         return res
           .status(400)
           .json({ message: "Aucun destinataire (tous désabonnés ?)" });
       }
+
       const campaign = await storage.createCampaign({
         subject,
         body: message,
-        audience: "all",
-        total: recipients.length,
+        audience: audienceLabel,
+        total: targets.length,
       });
 
       // Réponse immédiate ; l'envoi se fait en arrière-plan
-      res.json({ campaignId: campaign.id, total: recipients.length });
+      res.json({ campaignId: campaign.id, total: targets.length });
 
       (async () => {
         let sent = 0;
         let failed = 0;
         const concurrency = 4;
-        for (let i = 0; i < recipients.length; i += concurrency) {
-          const batch = recipients.slice(i, i + concurrency);
+        for (let i = 0; i < targets.length; i += concurrency) {
+          const batch = targets.slice(i, i + concurrency);
           await Promise.all(
             batch.map(async (u) => {
               try {
-                const token = jwt.sign(
-                  { userId: u.id, unsub: true },
-                  JWT_SECRET,
-                  { expiresIn: "365d" },
-                );
-                const unsubscribeUrl = `${appUrl}/unsubscribe?token=${token}`;
+                let html = buildCampaignHtml(messageHtml);
+                if (u.userId) {
+                  const token = jwt.sign(
+                    { userId: u.userId, unsub: true },
+                    JWT_SECRET,
+                    { expiresIn: "365d" },
+                  );
+                  html = buildCampaignHtml(
+                    messageHtml,
+                    `${appUrl}/unsubscribe?token=${token}`,
+                  );
+                }
                 await sendCampaignEmail({
                   to: u.email,
                   subject,
-                  html: buildCampaignHtml(messageHtml, unsubscribeUrl),
-                  text: message,
+                  html,
+                  text: plain,
                 });
                 sent++;
               } catch (e) {
