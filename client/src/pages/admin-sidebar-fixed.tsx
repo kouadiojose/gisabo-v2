@@ -27,7 +27,7 @@ import {
   Download,
 } from "lucide-react";
 import RichTextEditor from "@/components/rich-text-editor";
-import { exportToCsv } from "@/lib/export-csv";
+import { exportToXlsx } from "@/lib/export-xlsx";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 
@@ -387,7 +387,25 @@ export default function AdminSidebar() {
   const [mailMessage, setMailMessage] = useState("");
   const [mailTestEmail, setMailTestEmail] = useState("");
   const [mailAudience, setMailAudience] = useState<"all" | "selected">("all");
-  const [mailRecipients, setMailRecipients] = useState("");
+  const [mailSelected, setMailSelected] = useState<
+    { email: string; label: string }[]
+  >([]);
+  const [mailPickerQuery, setMailPickerQuery] = useState("");
+
+  const mailSuggestions = useMemo(() => {
+    const q = mailPickerQuery.trim().toLowerCase();
+    if (!q) return [];
+    const chosen = new Set(mailSelected.map((s) => s.email));
+    return (adminUsers || [])
+      .filter(
+        (u) =>
+          !chosen.has(u.email) &&
+          `${u.firstName} ${u.lastName} ${u.email}`
+            .toLowerCase()
+            .includes(q),
+      )
+      .slice(0, 8);
+  }, [adminUsers, mailPickerQuery, mailSelected]);
 
   const { data: campaigns } = useQuery<EmailCampaign[]>({
     queryKey: ["/api/admin/campaigns"],
@@ -446,7 +464,10 @@ export default function AdminSidebar() {
           subject: mailSubject,
           message: mailMessage,
           audience: mailAudience,
-          recipients: mailAudience === "selected" ? mailRecipients : undefined,
+          recipients:
+            mailAudience === "selected"
+              ? mailSelected.map((s) => s.email).join(", ")
+              : undefined,
         }),
       });
       if (!response.ok) {
@@ -462,7 +483,8 @@ export default function AdminSidebar() {
       });
       setMailSubject("");
       setMailMessage("");
-      setMailRecipients("");
+      setMailSelected([]);
+      setMailPickerQuery("");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] });
     },
     onError: (error: any) => {
@@ -631,44 +653,150 @@ export default function AdminSidebar() {
   const fmtDate = (d: string) =>
     d ? new Date(d).toLocaleDateString("fr-FR") : "";
 
-  const exportTransactions = () =>
-    exportToCsv(
-      "transactions.csv",
-      [
-        "ID", "Date", "Bénéficiaire", "Téléphone", "Destination",
-        "Montant", "Devise", "Reçu", "Devise reçue", "Méthode", "Statut",
-      ],
-      txFiltered.map((t) => [
-        t.id, fmtDate(t.createdAt), t.recipientName, t.recipientPhone,
-        t.destinationCountry, Number(t.amount).toFixed(2), t.currency,
-        Number(t.receivedAmount).toFixed(2), t.destinationCurrency,
-        t.deliveryMethod, t.status,
-      ]),
-    );
+  const exportTransactions = () => {
+    const completed = txFiltered.filter((t) => t.status === "completed");
+    const sumBy = (arr: typeof txFiltered, key: "amount" | "receivedAmount") =>
+      arr.reduce((s, t) => s + Number(t[key] || 0), 0);
+    exportToXlsx("transactions.xlsx", [
+      {
+        name: "Transactions",
+        columns: [
+          { header: "ID", key: "id", width: 8 },
+          { header: "Date", key: "date", width: 12 },
+          { header: "Bénéficiaire", key: "recipient", width: 26 },
+          { header: "Téléphone", key: "phone", width: 16 },
+          { header: "Destination", key: "dest", width: 14 },
+          { header: "Montant", key: "amount", width: 12 },
+          { header: "Devise", key: "currency", width: 10 },
+          { header: "Reçu", key: "received", width: 14 },
+          { header: "Devise reçue", key: "destCurrency", width: 12 },
+          { header: "Méthode", key: "method", width: 18 },
+          { header: "Statut", key: "status", width: 12 },
+        ],
+        rows: txFiltered.map((t) => ({
+          id: t.id,
+          date: fmtDate(t.createdAt),
+          recipient: t.recipientName,
+          phone: t.recipientPhone,
+          dest: t.destinationCountry,
+          amount: Number(t.amount),
+          currency: t.currency,
+          received: Number(t.receivedAmount),
+          destCurrency: t.destinationCurrency,
+          method: t.deliveryMethod,
+          status: t.status,
+        })),
+      },
+      {
+        name: "Résumé",
+        columns: [
+          { header: "Indicateur", key: "k", width: 32 },
+          { header: "Valeur", key: "v", width: 20 },
+        ],
+        rows: [
+          { k: "Nombre de transferts", v: txFiltered.length },
+          { k: "Dont complétés", v: completed.length },
+          { k: "Volume envoyé (complétés, CAD)", v: sumBy(completed, "amount") },
+          { k: "Volume reçu (complétés, BIF)", v: sumBy(completed, "receivedAmount") },
+          { k: "Exporté le", v: new Date().toLocaleString("fr-FR") },
+        ],
+      },
+    ]);
+  };
 
-  const exportOrders = () =>
-    exportToCsv(
-      "commandes.csv",
-      ["ID", "Date", "Client", "Total", "Devise", "Paiement Square", "Statut"],
-      odFiltered.map((o) => [
-        o.id, fmtDate(o.createdAt), `Client #${o.userId}`,
-        Number(o.total).toFixed(2), o.currency, o.squarePaymentId || "", o.status,
-      ]),
+  const exportOrders = () => {
+    const done = odFiltered.filter(
+      (o) => o.status !== "pending" && o.status !== "cancelled",
     );
+    exportToXlsx("commandes.xlsx", [
+      {
+        name: "Commandes",
+        columns: [
+          { header: "ID", key: "id", width: 8 },
+          { header: "Date", key: "date", width: 12 },
+          { header: "Client", key: "client", width: 14 },
+          { header: "Total", key: "total", width: 12 },
+          { header: "Devise", key: "currency", width: 10 },
+          { header: "Paiement Square", key: "sq", width: 30 },
+          { header: "Statut", key: "status", width: 14 },
+        ],
+        rows: odFiltered.map((o) => ({
+          id: o.id,
+          date: fmtDate(o.createdAt),
+          client: `Client #${o.userId}`,
+          total: Number(o.total),
+          currency: o.currency,
+          sq: o.squarePaymentId || "",
+          status: o.status,
+        })),
+      },
+      {
+        name: "Résumé",
+        columns: [
+          { header: "Indicateur", key: "k", width: 32 },
+          { header: "Valeur", key: "v", width: 20 },
+        ],
+        rows: [
+          { k: "Nombre de commandes", v: odFiltered.length },
+          { k: "Dont payées/traitées", v: done.length },
+          {
+            k: "Total encaissé (CAD)",
+            v: done
+              .filter((o) => o.currency === "CAD")
+              .reduce((s, o) => s + Number(o.total || 0), 0),
+          },
+          { k: "Exporté le", v: new Date().toLocaleString("fr-FR") },
+        ],
+      },
+    ]);
+  };
 
-  const exportUsers = () =>
-    exportToCsv(
-      "utilisateurs.csv",
-      [
-        "ID", "Prénom", "Nom", "Email", "Téléphone", "2FA",
-        "Transferts", "Commandes", "Inscrit le",
-      ],
-      usFiltered.map((u) => [
-        u.id, u.firstName, u.lastName, u.email, u.phone || "",
-        u.twoFactorEnabled ? "Oui" : "Non", u.transferCount, u.orderCount,
-        fmtDate(u.createdAt),
-      ]),
-    );
+  const exportUsers = () => {
+    const with2fa = usFiltered.filter((u) => u.twoFactorEnabled).length;
+    exportToXlsx("utilisateurs.xlsx", [
+      {
+        name: "Utilisateurs",
+        columns: [
+          { header: "ID", key: "id", width: 8 },
+          { header: "Prénom", key: "firstName", width: 18 },
+          { header: "Nom", key: "lastName", width: 18 },
+          { header: "Email", key: "email", width: 30 },
+          { header: "Téléphone", key: "phone", width: 16 },
+          { header: "2FA", key: "twofa", width: 8 },
+          { header: "Transferts", key: "transfers", width: 12 },
+          { header: "Commandes", key: "orders", width: 12 },
+          { header: "Inscrit le", key: "created", width: 12 },
+        ],
+        rows: usFiltered.map((u) => ({
+          id: u.id,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          phone: u.phone || "",
+          twofa: u.twoFactorEnabled ? "Oui" : "Non",
+          transfers: u.transferCount,
+          orders: u.orderCount,
+          created: fmtDate(u.createdAt),
+        })),
+      },
+      {
+        name: "Résumé",
+        columns: [
+          { header: "Indicateur", key: "k", width: 32 },
+          { header: "Valeur", key: "v", width: 20 },
+        ],
+        rows: [
+          { k: "Nombre d'utilisateurs", v: usFiltered.length },
+          { k: "Avec 2FA activée", v: with2fa },
+          {
+            k: "Total transferts (cumulé)",
+            v: usFiltered.reduce((s, u) => s + u.transferCount, 0),
+          },
+          { k: "Exporté le", v: new Date().toLocaleString("fr-FR") },
+        ],
+      },
+    ]);
+  };
 
   // Statistiques calculées dynamiquement à partir des transferts et commandes
   const stats = useMemo(() => {
@@ -3112,15 +3240,68 @@ export default function AdminSidebar() {
                     </div>
                     {mailAudience === "selected" && (
                       <div className="mt-2">
-                        <Textarea
-                          value={mailRecipients}
-                          onChange={(e) => setMailRecipients(e.target.value)}
-                          placeholder="email1@exemple.com, email2@exemple.com…"
-                          rows={3}
-                        />
+                        {mailSelected.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {mailSelected.map((s) => (
+                              <span
+                                key={s.email}
+                                className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full"
+                              >
+                                {s.label} ({s.email})
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setMailSelected((prev) =>
+                                      prev.filter((x) => x.email !== s.email),
+                                    )
+                                  }
+                                  className="hover:text-blue-900 font-bold"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <Input
+                            value={mailPickerQuery}
+                            onChange={(e) => setMailPickerQuery(e.target.value)}
+                            placeholder="Rechercher un utilisateur (nom ou email)…"
+                          />
+                          {mailSuggestions.length > 0 && (
+                            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-56 overflow-y-auto">
+                              {mailSuggestions.map((u) => (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setMailSelected((prev) => [
+                                      ...prev,
+                                      {
+                                        email: u.email,
+                                        label: `${u.firstName} ${u.lastName}`.trim(),
+                                      },
+                                    ]);
+                                    setMailPickerQuery("");
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                                >
+                                  <span className="font-medium">
+                                    {u.firstName} {u.lastName}
+                                  </span>
+                                  <span className="text-gray-500">
+                                    {" "}
+                                    — {u.email}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-400 mt-1">
-                          Séparez les adresses par une virgule, un espace ou un
-                          retour à la ligne (1 ou plusieurs).
+                          Recherchez et sélectionnez un ou plusieurs
+                          utilisateurs. {mailSelected.length} sélectionné(s).
                         </p>
                       </div>
                     )}
@@ -3159,7 +3340,8 @@ export default function AdminSidebar() {
                       disabled={
                         !mailSubject ||
                         !mailMessage ||
-                        (mailAudience === "selected" && !mailRecipients.trim()) ||
+                        (mailAudience === "selected" &&
+                          mailSelected.length === 0) ||
                         sendCampaignMutation.isPending
                       }
                       onClick={() => {
