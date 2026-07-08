@@ -20,6 +20,8 @@ import {
   Menu,
   Send,
   ShoppingCart,
+  Users,
+  Eye,
 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -85,6 +87,15 @@ interface AdminOrder {
   status: string;
   squarePaymentId?: string | null;
   createdAt: string;
+}
+
+interface VisitStats {
+  totalPageViews: number;
+  uniqueVisitors: number;
+  visitorsToday: number;
+  visitors7d: number;
+  visitors30d: number;
+  daily: { date: string; visitors: number }[];
 }
 
 function isAdminAuthenticated(): boolean {
@@ -220,6 +231,24 @@ export default function AdminSidebar() {
       if (!response.ok) return [];
       const data = await response.json();
       return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const { data: visitStats } = useQuery<VisitStats>({
+    queryKey: ["/api/admin/visit-stats"],
+    enabled: isAdminAuthenticated(),
+    queryFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/visit-stats");
+      if (!response.ok)
+        return {
+          totalPageViews: 0,
+          uniqueVisitors: 0,
+          visitorsToday: 0,
+          visitors7d: 0,
+          visitors30d: 0,
+          daily: [],
+        };
+      return response.json();
     },
   });
 
@@ -948,6 +977,112 @@ export default function AdminSidebar() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Fréquentation / Visiteurs */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-blue-600" />
+                    Fréquentation de la plateforme
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        Visiteurs uniques
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {(visitStats?.uniqueVisitors ?? 0).toLocaleString(
+                          "fr-CA",
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        Aujourd'hui
+                      </p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {(visitStats?.visitorsToday ?? 0).toLocaleString(
+                          "fr-CA",
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        7 derniers jours
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {(visitStats?.visitors7d ?? 0).toLocaleString("fr-CA")}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        30 derniers jours
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {(visitStats?.visitors30d ?? 0).toLocaleString("fr-CA")}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                        <Eye className="h-3.5 w-3.5" />
+                        Pages vues
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {(visitStats?.totalPageViews ?? 0).toLocaleString(
+                          "fr-CA",
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mini graphique 7 jours (visiteurs uniques / jour) */}
+                  {visitStats?.daily && visitStats.daily.length > 0 && (
+                    <div className="mt-6">
+                      <p className="text-xs font-medium text-gray-500 mb-3">
+                        Visiteurs uniques par jour (7 derniers jours)
+                      </p>
+                      <div className="flex items-end gap-2 h-28">
+                        {visitStats.daily.map((d) => {
+                          const max = Math.max(
+                            1,
+                            ...visitStats.daily.map((x) => x.visitors),
+                          );
+                          const heightPct = Math.round(
+                            (d.visitors / max) * 100,
+                          );
+                          const label = new Date(
+                            d.date + "T00:00:00",
+                          ).toLocaleDateString("fr-FR", {
+                            weekday: "short",
+                          });
+                          return (
+                            <div
+                              key={d.date}
+                              className="flex-1 flex flex-col items-center gap-1"
+                            >
+                              <span className="text-xs text-gray-500">
+                                {d.visitors}
+                              </span>
+                              <div className="w-full bg-gray-100 rounded-t flex items-end h-20">
+                                <div
+                                  className="w-full bg-blue-500 rounded-t transition-all"
+                                  style={{ height: `${heightPct}%` }}
+                                  title={`${d.date} : ${d.visitors} visiteur(s)`}
+                                />
+                              </div>
+                              <span className="text-[10px] text-gray-400 capitalize">
+                                {label}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Recent Activities */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

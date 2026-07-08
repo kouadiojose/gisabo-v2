@@ -58,6 +58,40 @@ function App() {
     });
   }, []);
 
+  useEffect(() => {
+    // Analytics visiteurs : une visite comptée une fois par session,
+    // hors espace admin, avec un identifiant anonyme persistant.
+    try {
+      const path = window.location.pathname;
+      if (path.startsWith("/admin")) return;
+      if (sessionStorage.getItem("gisabo_visit_tracked")) return;
+
+      let visitorId = localStorage.getItem("gisabo_visitor_id");
+      if (!visitorId) {
+        visitorId =
+          (window.crypto?.randomUUID?.() as string) ||
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem("gisabo_visitor_id", visitorId);
+      }
+
+      fetch("/api/track/visit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          visitorId,
+          path,
+          referrer: document.referrer || "",
+        }),
+      })
+        .then(() => sessionStorage.setItem("gisabo_visit_tracked", "1"))
+        .catch(() => {
+          /* analytics best-effort */
+        });
+    } catch {
+      /* Ignorer toute erreur d'analytics */
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

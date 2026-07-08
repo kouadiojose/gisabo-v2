@@ -1157,6 +1157,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enregistrement d'une visite (public, léger, anonyme)
+  app.post("/api/track/visit", async (req: any, res) => {
+    try {
+      const { visitorId, path, referrer } = req.body || {};
+      if (!visitorId || typeof visitorId !== "string") {
+        return res.status(400).json({ message: "visitorId requis" });
+      }
+      const rawIp =
+        (req.headers["x-forwarded-for"]?.toString().split(",")[0] || "").trim() ||
+        req.socket?.remoteAddress ||
+        "";
+      const ipHash = rawIp
+        ? crypto.createHash("sha256").update(rawIp).digest("hex")
+        : null;
+
+      await storage.recordVisit({
+        visitorId: visitorId.slice(0, 100),
+        path: typeof path === "string" ? path.slice(0, 300) : null,
+        referrer: typeof referrer === "string" ? referrer.slice(0, 300) : null,
+        userAgent: (req.headers["user-agent"] || "").toString().slice(0, 400),
+        ipHash,
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      // Ne jamais casser l'expérience visiteur pour un souci d'analytics
+      res.status(200).json({ success: false });
+    }
+  });
+
+  // Statistiques de visites (vue admin)
+  app.get("/api/admin/visit-stats", requireAdmin, async (req: any, res) => {
+    try {
+      const stats = await storage.getVisitStats();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Liste de TOUS les transferts (vue admin)
   app.get("/api/admin/transfers", requireAdmin, async (req: any, res) => {
     try {
