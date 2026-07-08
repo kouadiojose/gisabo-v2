@@ -190,6 +190,82 @@ export const translations = {
       recipientInfo: "Informations du destinataire",
       financialDetails: "Détails de la transaction",
     },
+    services: {
+      description: "Description",
+      fullDetails: "Détails complets",
+      available: "Disponible",
+      close: "Fermer"
+    },
+    transfer: {
+      transferMoney: "Envoyer de l'argent",
+      transferDescription: "Envoyez de l'argent à vos proches rapidement et en toute sécurité.",
+      transferDetails: "Détails du transfert",
+      step1: "Montant",
+      step2: "Bénéficiaire",
+      step3: "Livraison",
+      step4: "Paiement",
+      amount: "Montant à envoyer",
+      recipientName: "Nom du bénéficiaire",
+      recipientPhone: "Téléphone du bénéficiaire",
+      destinationCountry: "Pays de destination",
+      selectCountry: "Sélectionnez un pays",
+      deliveryMethodLabel: "Mode de réception",
+      formIncomplete: "Veuillez remplir tous les champs obligatoires.",
+      loginRequiredDescription: "Vous devez être connecté pour effectuer un transfert."
+    },
+    profile: {
+      edit: "Modifier",
+      save: "Enregistrer",
+      firstName: "Prénom",
+      lastName: "Nom",
+      email: "Courriel",
+      phone: "Téléphone",
+      memberSince: "Membre depuis",
+      updateSuccess: "Profil mis à jour",
+      updateSuccessDesc: "Vos informations ont été enregistrées avec succès.",
+      updateError: "Impossible de mettre à jour le profil. Veuillez réessayer.",
+      tabs: {
+        personal: "Informations personnelles",
+        security: "Sécurité",
+        payment: "Paiement",
+        activity: "Activité"
+      },
+      personalInfo: {
+        title: "Informations personnelles",
+        description: "Gérez vos informations personnelles et vos coordonnées."
+      },
+      security: {
+        title: "Sécurité",
+        description: "Gérez la sécurité de votre compte et votre mot de passe.",
+        password: "Mot de passe",
+        passwordDesc: "Modifiez votre mot de passe pour sécuriser votre compte.",
+        changePassword: "Changer le mot de passe",
+        currentPassword: "Mot de passe actuel",
+        newPassword: "Nouveau mot de passe",
+        confirmPassword: "Confirmer le mot de passe",
+        passwordChanged: "Mot de passe modifié",
+        passwordChangedDesc: "Votre mot de passe a été changé avec succès.",
+        passwordChangeError: "Impossible de changer le mot de passe. Vérifiez votre mot de passe actuel.",
+        twoFactor: "Authentification à deux facteurs",
+        twoFactorDesc: "Ajoutez une couche de sécurité supplémentaire à votre compte.",
+        enableTwoFactor: "Activer l'authentification à deux facteurs",
+        twoFactorEnabled: "Authentification à deux facteurs activée",
+        twoFactorEnabledDesc: "Votre compte est désormais mieux protégé.",
+        twoFactorError: "Impossible d'activer l'authentification à deux facteurs."
+      },
+      payment: {
+        title: "Moyens de paiement",
+        description: "Gérez vos moyens de paiement enregistrés.",
+        noMethods: "Aucun moyen de paiement enregistré.",
+        addMethod: "Ajouter un moyen de paiement"
+      },
+      activity: {
+        title: "Activité récente",
+        description: "Consultez l'activité récente de votre compte.",
+        lastLogin: "Dernière connexion",
+        accountCreated: "Compte créé le"
+      }
+    },
     dashboard: {
       title: "Tableau de bord",
       greeting: "Bienvenue sur votre tableau de bord",
@@ -514,6 +590,7 @@ export const translations = {
       invalidAmount: "Invalid Amount",
       invalidAmountDesc: "Minimum amount is 1 {currency}",
       recipientDetails: "Recipient Details",
+      financialDetails: "Transaction details",
       firstName: "First Name",
       lastName: "Last Name",
       phone: "Phone Number",
@@ -561,6 +638,82 @@ export const translations = {
       totalToPay: "Total to pay",
       continue: "Continue",
       recipientInfo: "Recipient information",
+    },
+    services: {
+      description: "Description",
+      fullDetails: "Full details",
+      available: "Available",
+      close: "Close"
+    },
+    transfer: {
+      transferMoney: "Send money",
+      transferDescription: "Send money to your loved ones quickly and securely.",
+      transferDetails: "Transfer details",
+      step1: "Amount",
+      step2: "Recipient",
+      step3: "Delivery",
+      step4: "Payment",
+      amount: "Amount to send",
+      recipientName: "Recipient name",
+      recipientPhone: "Recipient phone",
+      destinationCountry: "Destination country",
+      selectCountry: "Select a country",
+      deliveryMethodLabel: "Delivery method",
+      formIncomplete: "Please fill in all required fields.",
+      loginRequiredDescription: "You must be logged in to make a transfer."
+    },
+    profile: {
+      edit: "Edit",
+      save: "Save",
+      firstName: "First name",
+      lastName: "Last name",
+      email: "Email",
+      phone: "Phone",
+      memberSince: "Member since",
+      updateSuccess: "Profile updated",
+      updateSuccessDesc: "Your information has been saved successfully.",
+      updateError: "Unable to update profile. Please try again.",
+      tabs: {
+        personal: "Personal information",
+        security: "Security",
+        payment: "Payment",
+        activity: "Activity"
+      },
+      personalInfo: {
+        title: "Personal information",
+        description: "Manage your personal information and contact details."
+      },
+      security: {
+        title: "Security",
+        description: "Manage your account security and password.",
+        password: "Password",
+        passwordDesc: "Change your password to keep your account secure.",
+        changePassword: "Change password",
+        currentPassword: "Current password",
+        newPassword: "New password",
+        confirmPassword: "Confirm password",
+        passwordChanged: "Password changed",
+        passwordChangedDesc: "Your password has been changed successfully.",
+        passwordChangeError: "Unable to change password. Check your current password.",
+        twoFactor: "Two-factor authentication",
+        twoFactorDesc: "Add an extra layer of security to your account.",
+        enableTwoFactor: "Enable two-factor authentication",
+        twoFactorEnabled: "Two-factor authentication enabled",
+        twoFactorEnabledDesc: "Your account is now better protected.",
+        twoFactorError: "Unable to enable two-factor authentication."
+      },
+      payment: {
+        title: "Payment methods",
+        description: "Manage your saved payment methods.",
+        noMethods: "No payment method saved.",
+        addMethod: "Add a payment method"
+      },
+      activity: {
+        title: "Recent activity",
+        description: "View your account's recent activity.",
+        lastLogin: "Last login",
+        accountCreated: "Account created on"
+      }
     },
     dashboard: {
       title: "Dashboard",
