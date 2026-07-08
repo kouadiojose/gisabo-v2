@@ -1177,6 +1177,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Renvoi manuel de la notification email d'un transfert (vue admin)
+  app.post(
+    "/api/admin/transfers/:id/resend-notification",
+    requireAdmin,
+    async (req: any, res) => {
+      try {
+        const transferId = parseInt(req.params.id);
+        const transfer = await storage.getTransfer(transferId);
+        if (!transfer) {
+          return res.status(404).json({ message: "Transfert introuvable" });
+        }
+        const user = await storage.getUser(transfer.userId);
+        if (!user) {
+          return res
+            .status(404)
+            .json({ message: "Client associé introuvable" });
+        }
+        const paymentMethod =
+          transfer.deliveryMethod === "afterpay" ? "afterpay" : "card";
+        const sent = await sendTransferConfirmationEmail(
+          transfer,
+          user,
+          transfer.squarePaymentId || "N/A",
+          paymentMethod,
+        );
+        if (!sent) {
+          return res
+            .status(502)
+            .json({ message: "L'envoi de l'email a échoué" });
+        }
+        console.log(
+          `📧 [ADMIN] Notification renvoyée pour le transfert ${transferId}`,
+        );
+        res.json({ success: true, message: "Notification renvoyée" });
+      } catch (error: any) {
+        console.error("❌ [ADMIN] Renvoi notification transfert:", error);
+        res.status(500).json({ message: error.message });
+      }
+    },
+  );
+
+  // Renvoi manuel de la notification email d'une commande (vue admin)
+  app.post(
+    "/api/admin/orders/:id/resend-notification",
+    requireAdmin,
+    async (req: any, res) => {
+      try {
+        const orderId = parseInt(req.params.id);
+        const order = await storage.getOrder(orderId);
+        if (!order) {
+          return res.status(404).json({ message: "Commande introuvable" });
+        }
+        const user = await storage.getUser(order.userId);
+        if (!user) {
+          return res
+            .status(404)
+            .json({ message: "Client associé introuvable" });
+        }
+        const orderItems = await storage.getOrderItems(order.id);
+        await sendOrderConfirmationEmail(
+          order,
+          user,
+          orderItems,
+          order.squarePaymentId || "N/A",
+        );
+        console.log(
+          `📧 [ADMIN] Notification renvoyée pour la commande ${orderId}`,
+        );
+        res.json({ success: true, message: "Notification renvoyée" });
+      } catch (error: any) {
+        console.error("❌ [ADMIN] Renvoi notification commande:", error);
+        res.status(500).json({ message: error.message });
+      }
+    },
+  );
+
   app.post("/api/admin/exchange-rates", requireAdmin, async (req: any, res) => {
     try {
       const rateData = insertExchangeRateSchema.parse(req.body);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -222,6 +222,105 @@ export default function AdminSidebar() {
       return Array.isArray(data) ? data : [];
     },
   });
+
+  // Renvoi manuel d'une notification (transfert ou commande)
+  const resendTransferNotification = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await makeAuthenticatedRequest(
+        `/api/admin/transfers/${id}/resend-notification`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Échec de l'envoi");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Notification renvoyée",
+        description: "L'email de confirmation a été renvoyé au client.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Échec du renvoi",
+        description: error.message || "Impossible d'envoyer la notification.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resendOrderNotification = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await makeAuthenticatedRequest(
+        `/api/admin/orders/${id}/resend-notification`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Échec de l'envoi");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Notification renvoyée",
+        description: "L'email de confirmation a été renvoyé au client.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Échec du renvoi",
+        description: error.message || "Impossible d'envoyer la notification.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Statistiques calculées dynamiquement à partir des transferts et commandes
+  const stats = useMemo(() => {
+    const tr = transfers || [];
+    const od = orders || [];
+    const isDoneTransfer = (s: string) => s === "completed";
+    const isDoneOrder = (s: string) => s !== "pending" && s !== "cancelled";
+
+    const completedTransfers = tr.filter((t) => isDoneTransfer(t.status));
+    const sentByCurrency: Record<string, number> = {};
+    let receivedBIF = 0;
+    for (const t of completedTransfers) {
+      const cur = t.currency || "CAD";
+      sentByCurrency[cur] = (sentByCurrency[cur] || 0) + Number(t.amount || 0);
+      if (t.destinationCurrency === "BIF") {
+        receivedBIF += Number(t.receivedAmount || 0);
+      }
+    }
+
+    const completedOrders = od.filter((o) => isDoneOrder(o.status));
+    const ordersByCurrency: Record<string, number> = {};
+    for (const o of completedOrders) {
+      const cur = o.currency || "CAD";
+      ordersByCurrency[cur] = (ordersByCurrency[cur] || 0) + Number(o.total || 0);
+    }
+
+    return {
+      totalTransfers: tr.length,
+      completedTransfers: completedTransfers.length,
+      pendingTransfers: tr.length - completedTransfers.length,
+      sentCAD: sentByCurrency["CAD"] || 0,
+      receivedBIF,
+      totalOrders: od.length,
+      completedOrders: completedOrders.length,
+      ordersCAD: ordersByCurrency["CAD"] || 0,
+      recentTransfers: tr.slice(0, 10),
+    };
+  }, [transfers, orders]);
+
+  const formatMoney = (value: number, currency: string, digits = 2) =>
+    `${value.toLocaleString("fr-CA", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    })} ${currency}`;
 
   // Upload image function
   const uploadImage = async (file: File): Promise<string> => {
@@ -733,11 +832,15 @@ export default function AdminSidebar() {
                           Total Transferts
                         </p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {dashboardStats?.totalTransfers || 0}
+                          {stats.totalTransfers}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {stats.completedTransfers} complétés ·{" "}
+                          {stats.pendingTransfers} en attente
                         </p>
                       </div>
                       <div className="p-2 bg-blue-100 rounded-lg">
-                        <TrendingUp className="h-6 w-6 text-blue-600" />
+                        <Send className="h-6 w-6 text-blue-600" />
                       </div>
                     </div>
                   </CardContent>
@@ -748,12 +851,13 @@ export default function AdminSidebar() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-600">
-                          Montant Total
+                          Envoyé (complétés)
                         </p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {dashboardStats?.totalAmount
-                            ? `${parseFloat(dashboardStats.totalAmount).toLocaleString("fr-CA")} CAD`
-                            : "0 CAD"}
+                          {formatMoney(stats.sentCAD, "CAD")}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Total des montants envoyés
                         </p>
                       </div>
                       <div className="p-2 bg-green-100 rounded-lg">
@@ -763,6 +867,51 @@ export default function AdminSidebar() {
                   </CardContent>
                 </Card>
 
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">
+                          Reçu (complétés)
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {formatMoney(stats.receivedBIF, "BIF", 0)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Total distribué aux bénéficiaires
+                        </p>
+                      </div>
+                      <div className="p-2 bg-emerald-100 rounded-lg">
+                        <TrendingUp className="h-6 w-6 text-emerald-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">
+                          Commandes
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {stats.totalOrders}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatMoney(stats.ordersCAD, "CAD")} encaissés
+                        </p>
+                      </div>
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <ShoppingCart className="h-6 w-6 text-orange-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Second row : services & products at a glance */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -804,24 +953,25 @@ export default function AdminSidebar() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Transferts Récents</CardTitle>
+                    <CardTitle>10 Transferts les plus récents</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {dashboardStats?.recentTransfers &&
-                    dashboardStats.recentTransfers.length > 0 ? (
-                      <div className="space-y-4">
-                        {dashboardStats.recentTransfers.map((transfer: any) => (
+                    {stats.recentTransfers.length > 0 ? (
+                      <div className="space-y-3">
+                        {stats.recentTransfers.map((transfer) => (
                           <div
                             key={transfer.id}
-                            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                            className="flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-lg"
                           >
-                            <div>
-                              <p className="font-medium">
-                                {transfer.recipientName}
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">
+                                #{transfer.id} · {transfer.recipientName}
                               </p>
                               <p className="text-sm text-gray-600">
-                                {transfer.amount} {transfer.currency} →{" "}
-                                {transfer.destinationCountry}
+                                {Number(transfer.amount).toFixed(2)}{" "}
+                                {transfer.currency} →{" "}
+                                {Number(transfer.receivedAmount).toFixed(0)}{" "}
+                                {transfer.destinationCurrency}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {new Date(
@@ -833,7 +983,9 @@ export default function AdminSidebar() {
                               variant={
                                 transfer.status === "completed"
                                   ? "default"
-                                  : "secondary"
+                                  : transfer.status === "failed"
+                                    ? "destructive"
+                                    : "secondary"
                               }
                             >
                               {transfer.status}
@@ -1817,6 +1969,7 @@ export default function AdminSidebar() {
                             <th className="py-2 pr-4 font-medium">Reçu</th>
                             <th className="py-2 pr-4 font-medium">Méthode</th>
                             <th className="py-2 pr-4 font-medium">Statut</th>
+                            <th className="py-2 pr-4 font-medium">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1857,6 +2010,30 @@ export default function AdminSidebar() {
                                 >
                                   {tr.status}
                                 </Badge>
+                              </td>
+                              <td className="py-2 pr-4">
+                                {tr.status === "completed" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      resendTransferNotification.mutate(tr.id)
+                                    }
+                                    disabled={
+                                      resendTransferNotification.isPending &&
+                                      resendTransferNotification.variables ===
+                                        tr.id
+                                    }
+                                    className="whitespace-nowrap"
+                                  >
+                                    <Send className="h-3.5 w-3.5 mr-1" />
+                                    {resendTransferNotification.isPending &&
+                                    resendTransferNotification.variables ===
+                                      tr.id
+                                      ? "Envoi…"
+                                      : "Renvoyer"}
+                                  </Button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -1904,6 +2081,7 @@ export default function AdminSidebar() {
                             <th className="py-2 pr-4 font-medium">Total</th>
                             <th className="py-2 pr-4 font-medium">Paiement Square</th>
                             <th className="py-2 pr-4 font-medium">Statut</th>
+                            <th className="py-2 pr-4 font-medium">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1936,6 +2114,30 @@ export default function AdminSidebar() {
                                 >
                                   {od.status}
                                 </Badge>
+                              </td>
+                              <td className="py-2 pr-4">
+                                {od.status !== "pending" &&
+                                  od.status !== "cancelled" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        resendOrderNotification.mutate(od.id)
+                                      }
+                                      disabled={
+                                        resendOrderNotification.isPending &&
+                                        resendOrderNotification.variables ===
+                                          od.id
+                                      }
+                                      className="whitespace-nowrap"
+                                    >
+                                      <Send className="h-3.5 w-3.5 mr-1" />
+                                      {resendOrderNotification.isPending &&
+                                      resendOrderNotification.variables === od.id
+                                        ? "Envoi…"
+                                        : "Renvoyer"}
+                                    </Button>
+                                  )}
                               </td>
                             </tr>
                           ))}
