@@ -18,6 +18,8 @@ import {
   LogOut,
   X,
   Menu,
+  Send,
+  ShoppingCart,
 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -57,6 +59,32 @@ interface Product {
   categoryId: number;
   imageUrl?: string;
   inStock: boolean;
+}
+
+interface AdminTransfer {
+  id: number;
+  userId: number;
+  amount: string;
+  currency: string;
+  recipientName: string;
+  recipientPhone: string;
+  destinationCountry: string;
+  destinationCurrency: string;
+  receivedAmount: string;
+  deliveryMethod: string;
+  status: string;
+  squarePaymentId?: string | null;
+  createdAt: string;
+}
+
+interface AdminOrder {
+  id: number;
+  userId: number;
+  total: string;
+  currency: string;
+  status: string;
+  squarePaymentId?: string | null;
+  createdAt: string;
 }
 
 function isAdminAuthenticated(): boolean {
@@ -167,6 +195,28 @@ export default function AdminSidebar() {
     enabled: isAdminAuthenticated(),
     queryFn: async () => {
       const response = await makeAuthenticatedRequest("/api/admin/products");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const { data: transfers } = useQuery<AdminTransfer[]>({
+    queryKey: ["/api/admin/transfers"],
+    enabled: isAdminAuthenticated(),
+    queryFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/transfers");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const { data: orders } = useQuery<AdminOrder[]>({
+    queryKey: ["/api/admin/orders"],
+    enabled: isAdminAuthenticated(),
+    queryFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/orders");
       if (!response.ok) return [];
       const data = await response.json();
       return Array.isArray(data) ? data : [];
@@ -611,6 +661,36 @@ export default function AdminSidebar() {
           >
             <TrendingUp className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">Taux de Change</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSection("transactions");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+              activeSection === "transactions"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Send className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Transactions</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSection("orders");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+              activeSection === "orders"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <ShoppingCart className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Commandes</span>
           </button>
         </nav>
 
@@ -1695,6 +1775,174 @@ export default function AdminSidebar() {
                       </div>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Transactions (Transferts) Section */}
+          {activeSection === "transactions" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Transactions
+                </h2>
+                <p className="text-gray-600">
+                  Liste des transferts d'argent effectués par les clients
+                </p>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {transfers?.length || 0} transfert
+                    {(transfers?.length || 0) > 1 ? "s" : ""}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!transfers || transfers.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Aucun transfert pour le moment.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-gray-500">
+                            <th className="py-2 pr-4 font-medium">ID</th>
+                            <th className="py-2 pr-4 font-medium">Date</th>
+                            <th className="py-2 pr-4 font-medium">Bénéficiaire</th>
+                            <th className="py-2 pr-4 font-medium">Destination</th>
+                            <th className="py-2 pr-4 font-medium">Montant</th>
+                            <th className="py-2 pr-4 font-medium">Reçu</th>
+                            <th className="py-2 pr-4 font-medium">Méthode</th>
+                            <th className="py-2 pr-4 font-medium">Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transfers.map((tr) => (
+                            <tr key={tr.id} className="border-b last:border-0">
+                              <td className="py-2 pr-4 text-gray-900">#{tr.id}</td>
+                              <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
+                                {new Date(tr.createdAt).toLocaleDateString("fr-FR")}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-900">
+                                {tr.recipientName}
+                                <div className="text-xs text-gray-400">
+                                  {tr.recipientPhone}
+                                </div>
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                {tr.destinationCountry}
+                              </td>
+                              <td className="py-2 pr-4 whitespace-nowrap text-gray-900">
+                                {Number(tr.amount).toFixed(2)} {tr.currency}
+                              </td>
+                              <td className="py-2 pr-4 whitespace-nowrap text-gray-600">
+                                {Number(tr.receivedAmount).toFixed(0)}{" "}
+                                {tr.destinationCurrency}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                {tr.deliveryMethod}
+                              </td>
+                              <td className="py-2 pr-4">
+                                <Badge
+                                  variant={
+                                    tr.status === "completed"
+                                      ? "default"
+                                      : tr.status === "failed"
+                                        ? "destructive"
+                                        : "secondary"
+                                  }
+                                >
+                                  {tr.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Commandes (Orders) Section */}
+          {activeSection === "orders" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Commandes
+                </h2>
+                <p className="text-gray-600">
+                  Liste des achats de produits effectués par les clients
+                </p>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {orders?.length || 0} commande
+                    {(orders?.length || 0) > 1 ? "s" : ""}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!orders || orders.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Aucune commande pour le moment.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-gray-500">
+                            <th className="py-2 pr-4 font-medium">ID</th>
+                            <th className="py-2 pr-4 font-medium">Date</th>
+                            <th className="py-2 pr-4 font-medium">Client</th>
+                            <th className="py-2 pr-4 font-medium">Total</th>
+                            <th className="py-2 pr-4 font-medium">Paiement Square</th>
+                            <th className="py-2 pr-4 font-medium">Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orders.map((od) => (
+                            <tr key={od.id} className="border-b last:border-0">
+                              <td className="py-2 pr-4 text-gray-900">#{od.id}</td>
+                              <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
+                                {new Date(od.createdAt).toLocaleDateString("fr-FR")}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                Client #{od.userId}
+                              </td>
+                              <td className="py-2 pr-4 whitespace-nowrap text-gray-900">
+                                {Number(od.total).toFixed(2)} {od.currency}
+                              </td>
+                              <td className="py-2 pr-4 text-xs text-gray-400">
+                                {od.squarePaymentId || "—"}
+                              </td>
+                              <td className="py-2 pr-4">
+                                <Badge
+                                  variant={
+                                    od.status === "delivered" ||
+                                    od.status === "processing" ||
+                                    od.status === "shipped"
+                                      ? "default"
+                                      : od.status === "cancelled"
+                                        ? "destructive"
+                                        : "secondary"
+                                  }
+                                >
+                                  {od.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
