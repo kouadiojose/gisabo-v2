@@ -14,6 +14,21 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("user"), // user, admin
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   twoFactorSecret: text("two_factor_secret"), // secret TOTP (jamais exposé au client)
+  squareCustomerId: text("square_customer_id"), // client Square (cartes enregistrées)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Moyens de paiement (cartes « on file » vaultées chez Square).
+// On ne stocke JAMAIS le numéro de carte : seulement la référence Square
+// et des métadonnées d'affichage (marque, 4 derniers chiffres, expiration).
+export const paymentMethods = pgTable("payment_methods", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  squareCardId: text("square_card_id").notNull(),
+  brand: text("brand"),
+  last4: text("last4"),
+  expMonth: integer("exp_month"),
+  expYear: integer("exp_year"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -234,6 +249,11 @@ export const insertVisitSchema = createInsertSchema(visits).omit({
   createdAt: true,
 });
 
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -255,3 +275,5 @@ export type Admin = typeof admins.$inferSelect;
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
 export type Visit = typeof visits.$inferSelect;
 export type InsertVisit = z.infer<typeof insertVisitSchema>;
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;

@@ -15,6 +15,15 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isAuthenticated, getAuthHeaders } from "@/lib/auth";
 import { useLocation } from "wouter";
 import type { User as UserType } from "@shared/schema";
+import AddCardForm from "@/components/add-card-form";
+
+interface PaymentMethodItem {
+  id: number;
+  brand: string | null;
+  last4: string | null;
+  expMonth: number | null;
+  expYear: number | null;
+}
 import Navbar from "@/components/navbar";
 
 export default function Profile() {
@@ -31,6 +40,7 @@ export default function Profile() {
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [isDisabling2FA, setIsDisabling2FA] = useState(false);
   const [disableCode, setDisableCode] = useState("");
+  const [isAddingCard, setIsAddingCard] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -210,6 +220,62 @@ export default function Profile() {
       toast({
         title: t("common.error"),
         description: error.message || t("profile.security.twoFactorInvalidCode"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Moyens de paiement (cartes enregistrées)
+  const { data: paymentMethods } = useQuery<PaymentMethodItem[]>({
+    queryKey: ["/api/payment-methods"],
+    enabled: authenticated,
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/payment-methods");
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const addCardMutation = useMutation({
+    mutationFn: async (sourceId: string) => {
+      const response = await apiRequest("POST", "/api/payment-methods", {
+        sourceId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t("profile.payment.cardAdded"),
+        description: t("profile.payment.cardAddedDesc"),
+      });
+      setIsAddingCard(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("profile.payment.cardError"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCardMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/payment-methods/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t("profile.payment.cardRemoved"),
+        description: t("profile.payment.cardRemovedDesc"),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("profile.payment.cardError"),
         variant: "destructive",
       });
     },
@@ -565,15 +631,84 @@ export default function Profile() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <CreditCard size={48} className="mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    {t("profile.payment.noMethods")}
-                  </p>
-                  <Button className="mt-4" variant="outline">
-                    {t("profile.payment.addMethod")}
-                  </Button>
-                </div>
+                {/* Liste des cartes enregistrées */}
+                {paymentMethods && paymentMethods.length > 0 && (
+                  <div className="space-y-3 mb-6">
+                    {paymentMethods.map((pm) => (
+                      <div
+                        key={pm.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <CreditCard
+                            size={28}
+                            className="text-muted-foreground"
+                          />
+                          <div>
+                            <p className="font-medium">
+                              {pm.brand || t("profile.payment.card")} ••••{" "}
+                              {pm.last4 || "----"}
+                            </p>
+                            {pm.expMonth && pm.expYear && (
+                              <p className="text-sm text-muted-foreground">
+                                {t("profile.payment.expires")}{" "}
+                                {String(pm.expMonth).padStart(2, "0")}/
+                                {pm.expYear}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          disabled={deleteCardMutation.isPending}
+                          onClick={() => deleteCardMutation.mutate(pm.id)}
+                        >
+                          {t("profile.payment.remove")}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Formulaire d'ajout ou état vide */}
+                {isAddingCard ? (
+                  <AddCardForm
+                    isSubmitting={addCardMutation.isPending}
+                    onCancel={() => setIsAddingCard(false)}
+                    onToken={(token) => addCardMutation.mutate(token)}
+                  />
+                ) : (
+                  <>
+                    {(!paymentMethods || paymentMethods.length === 0) && (
+                      <div className="text-center py-8">
+                        <CreditCard
+                          size={48}
+                          className="mx-auto mb-4 text-muted-foreground"
+                        />
+                        <p className="text-muted-foreground">
+                          {t("profile.payment.noMethods")}
+                        </p>
+                      </div>
+                    )}
+                    <div
+                      className={
+                        !paymentMethods || paymentMethods.length === 0
+                          ? "text-center"
+                          : ""
+                      }
+                    >
+                      <Button
+                        className="mt-2"
+                        variant="outline"
+                        onClick={() => setIsAddingCard(true)}
+                      >
+                        {t("profile.payment.addMethod")}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
