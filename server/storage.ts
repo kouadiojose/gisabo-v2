@@ -1,4 +1,4 @@
-import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, paymentMethods, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit, type PaymentMethod, type InsertPaymentMethod } from "@shared/schema";
+import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, paymentMethods, emailCampaigns, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit, type PaymentMethod, type InsertPaymentMethod, type EmailCampaign } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -67,6 +67,13 @@ export interface IStorage {
   getUserIdByLegacyId(legacyId: number): Promise<number | undefined>;
   getLegacyUserIdMap(): Promise<Map<number, number>>;
   bulkInsertTransfers(rows: (typeof transfers.$inferInsert)[]): Promise<number>;
+
+  // Mailing / campagnes email
+  getMailableUsers(): Promise<{ id: number; email: string; firstName: string }[]>;
+  setEmailOptOut(userId: number): Promise<void>;
+  createCampaign(data: { subject: string; body: string; audience: string; total: number }): Promise<EmailCampaign>;
+  updateCampaign(id: number, data: Partial<{ sent: number; failed: number; status: string }>): Promise<void>;
+  getCampaigns(): Promise<EmailCampaign[]>;
 
   // Moyens de paiement
   getPaymentMethods(userId: number): Promise<PaymentMethod[]>;
@@ -310,6 +317,47 @@ export class DatabaseStorage implements IStorage {
       inserted += res.length;
     }
     return inserted;
+  }
+
+  async getMailableUsers(): Promise<
+    { id: number; email: string; firstName: string }[]
+  > {
+    return await db
+      .select({ id: users.id, email: users.email, firstName: users.firstName })
+      .from(users)
+      .where(eq(users.emailOptOut, false));
+  }
+
+  async setEmailOptOut(userId: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ emailOptOut: true })
+      .where(eq(users.id, userId));
+  }
+
+  async createCampaign(data: {
+    subject: string;
+    body: string;
+    audience: string;
+    total: number;
+  }): Promise<EmailCampaign> {
+    const [c] = await db.insert(emailCampaigns).values(data).returning();
+    return c;
+  }
+
+  async updateCampaign(
+    id: number,
+    data: Partial<{ sent: number; failed: number; status: string }>,
+  ): Promise<void> {
+    await db.update(emailCampaigns).set(data).where(eq(emailCampaigns.id, id));
+  }
+
+  async getCampaigns(): Promise<EmailCampaign[]> {
+    return await db
+      .select()
+      .from(emailCampaigns)
+      .orderBy(desc(emailCampaigns.createdAt))
+      .limit(50);
   }
 
   async recordVisit(visit: InsertVisit): Promise<void> {

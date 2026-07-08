@@ -298,6 +298,27 @@ async function runMigration() {
       console.error('[MIGRATE] Impossible de préparer legacy_id:', e.message);
     }
 
+    // Mailing : désabonnement + campagnes email — idempotent
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_opt_out BOOLEAN NOT NULL DEFAULT false;`);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS email_campaigns (
+          id SERIAL PRIMARY KEY,
+          subject TEXT NOT NULL,
+          body TEXT NOT NULL,
+          audience TEXT NOT NULL DEFAULT 'all',
+          total INTEGER NOT NULL DEFAULT 0,
+          sent INTEGER NOT NULL DEFAULT 0,
+          failed INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'sending',
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+      `);
+      console.log('✅ Mailing (email_campaigns) prêt.');
+    } catch (e) {
+      console.error('[MIGRATE] Impossible de préparer le mailing:', e.message);
+    }
+
     // Moyens de paiement (cartes Square « on file ») — idempotent
     try {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS square_customer_id TEXT;`);

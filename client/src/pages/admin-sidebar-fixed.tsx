@@ -23,6 +23,7 @@ import {
   Users,
   Eye,
   Upload,
+  Mail,
 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -110,6 +111,16 @@ interface AdminUser {
   createdAt: string;
   transferCount: number;
   orderCount: number;
+}
+
+interface EmailCampaign {
+  id: number;
+  subject: string;
+  total: number;
+  sent: number;
+  failed: number;
+  status: string;
+  createdAt: string;
 }
 
 const PAGE_SIZE = 20;
@@ -362,6 +373,90 @@ export default function AdminSidebar() {
     onError: (error: any) => {
       toast({
         title: "Import impossible",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mailing (campagnes email)
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailMessage, setMailMessage] = useState("");
+  const [mailTestEmail, setMailTestEmail] = useState("");
+
+  const { data: campaigns } = useQuery<EmailCampaign[]>({
+    queryKey: ["/api/admin/campaigns"],
+    enabled: isAdminAuthenticated(),
+    refetchInterval: (query) => {
+      const data = query.state.data as EmailCampaign[] | undefined;
+      return data && data.some((c) => c.status === "sending") ? 4000 : false;
+    },
+    queryFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/campaigns");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const sendTestMutation = useMutation({
+    mutationFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: mailSubject,
+          message: mailMessage,
+          test: true,
+          testEmail: mailTestEmail,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Envoi impossible");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Email de test envoyé",
+        description: `Vérifiez la boîte de ${mailTestEmail}.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Envoi impossible",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendCampaignMutation = useMutation({
+    mutationFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: mailSubject, message: mailMessage }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Envoi impossible");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Campagne lancée",
+        description: `Envoi en cours vers ${data.total} destinataire(s).`,
+      });
+      setMailSubject("");
+      setMailMessage("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Envoi impossible",
         description: error.message,
         variant: "destructive",
       });
@@ -1064,6 +1159,21 @@ export default function AdminSidebar() {
           >
             <Upload className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">Importer</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSection("emails");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+              activeSection === "emails"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Mail className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Emails</span>
           </button>
         </nav>
 
@@ -2842,6 +2952,178 @@ export default function AdminSidebar() {
                       <p className="text-gray-400">
                         {importTransfersResult.total} ligne(s) au total
                       </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Emails / Mailing Section */}
+          {activeSection === "emails" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Emails aux utilisateurs
+                </h2>
+                <p className="text-gray-600">
+                  Envoyez une information à tous vos utilisateurs
+                </p>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Nouvelle campagne</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="mailSubject">Objet</Label>
+                    <Input
+                      id="mailSubject"
+                      value={mailSubject}
+                      onChange={(e) => setMailSubject(e.target.value)}
+                      placeholder="Ex : Nouveauté sur GISABO"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="mailMessage">Message</Label>
+                    <Textarea
+                      id="mailMessage"
+                      value={mailMessage}
+                      onChange={(e) => setMailMessage(e.target.value)}
+                      placeholder="Rédigez votre message… (les sauts de ligne sont conservés)"
+                      rows={8}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Le message est habillé automatiquement (en-tête GISABO,
+                      pied de page, lien de désabonnement).
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                    <div className="flex-1">
+                      <Label htmlFor="mailTest">Adresse pour un test</Label>
+                      <Input
+                        id="mailTest"
+                        type="email"
+                        value={mailTestEmail}
+                        onChange={(e) => setMailTestEmail(e.target.value)}
+                        placeholder="votre@email.com"
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      disabled={
+                        !mailSubject ||
+                        !mailMessage ||
+                        !mailTestEmail ||
+                        sendTestMutation.isPending
+                      }
+                      onClick={() => sendTestMutation.mutate()}
+                    >
+                      {sendTestMutation.isPending
+                        ? "Envoi…"
+                        : "Envoyer un test"}
+                    </Button>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <Button
+                      disabled={
+                        !mailSubject ||
+                        !mailMessage ||
+                        sendCampaignMutation.isPending
+                      }
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Envoyer cet email à TOUS les utilisateurs abonnés ?",
+                          )
+                        ) {
+                          sendCampaignMutation.mutate();
+                        }
+                      }}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      {sendCampaignMutation.isPending
+                        ? "Lancement…"
+                        : "Envoyer à tous les utilisateurs"}
+                    </Button>
+                    <p className="text-xs text-gray-400 mt-2">
+                      ⚠️ Selon votre offre Resend, un plafond quotidien peut
+                      s'appliquer. Les envois échoués sont comptabilisés dans
+                      l'historique ci-dessous.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Historique des campagnes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!campaigns || campaigns.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Aucune campagne envoyée pour le moment.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-gray-500">
+                            <th className="py-2 pr-4 font-medium">Date</th>
+                            <th className="py-2 pr-4 font-medium">Objet</th>
+                            <th className="py-2 pr-4 font-medium">Envoyés</th>
+                            <th className="py-2 pr-4 font-medium">Échecs</th>
+                            <th className="py-2 pr-4 font-medium">Total</th>
+                            <th className="py-2 pr-4 font-medium">Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {campaigns.map((c) => (
+                            <tr key={c.id} className="border-b last:border-0">
+                              <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
+                                {new Date(c.createdAt).toLocaleDateString(
+                                  "fr-FR",
+                                )}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-900">
+                                {c.subject}
+                              </td>
+                              <td className="py-2 pr-4 text-green-700">
+                                {c.sent}
+                              </td>
+                              <td className="py-2 pr-4 text-red-600">
+                                {c.failed}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                {c.total}
+                              </td>
+                              <td className="py-2 pr-4">
+                                <Badge
+                                  variant={
+                                    c.status === "done"
+                                      ? "default"
+                                      : c.status === "failed"
+                                        ? "destructive"
+                                        : "secondary"
+                                  }
+                                >
+                                  {c.status === "sending"
+                                    ? "En cours…"
+                                    : c.status === "done"
+                                      ? "Terminé"
+                                      : "Échec"}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </CardContent>
