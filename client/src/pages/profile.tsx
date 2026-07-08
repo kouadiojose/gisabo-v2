@@ -37,10 +37,18 @@ export default function Profile() {
     }
   }, [authenticated, navigate]);
 
-  // Fetch user data - use default queryFn from queryClient
+  // Fetch user data. /api/auth/me renvoie { user: {...} } : il faut extraire
+  // data.user, sinon tous les champs sont undefined (champs vides + Invalid Date).
   const { data: user, isLoading } = useQuery<UserType>({
     queryKey: ["/api/auth/me"],
     enabled: authenticated,
+    queryFn: async () => {
+      const headers = getAuthHeaders();
+      const response = await fetch("/api/auth/me", { headers: headers || {} });
+      if (!response.ok) throw new Error("Failed to fetch user");
+      const data = await response.json();
+      return data.user;
+    },
   });
 
   // Update form data when user data loads
@@ -214,7 +222,10 @@ export default function Profile() {
             <h1 className="text-3xl font-bold">{user.firstName} {user.lastName}</h1>
             <p className="text-muted-foreground">{user.email}</p>
             <Badge variant="outline" className="mt-2">
-              {t("profile.memberSince")} {new Date(user.createdAt).toLocaleDateString()}
+              {t("profile.memberSince")}{" "}
+              {user.createdAt
+                ? new Date(user.createdAt).toLocaleDateString()
+                : "—"}
             </Badge>
           </div>
         </div>
@@ -438,7 +449,9 @@ export default function Profile() {
                     <div>
                       <p className="font-medium">{t("profile.activity.accountCreated")}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(user.createdAt).toLocaleDateString()}
+                        {user.createdAt
+                          ? new Date(user.createdAt).toLocaleDateString()
+                          : "—"}
                       </p>
                     </div>
                   </div>
