@@ -181,10 +181,17 @@ export default function Dashboard() {
 
   const safeTransfers = Array.isArray(transfers) ? transfers : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
-  const totalSent = safeTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-  const transfersThisMonth = safeTransfers.filter(
-    (t) => new Date(t.createdAt).getMonth() === new Date().getMonth(),
-  ).length;
+  const totalSent = safeTransfers.reduce(
+    (sum, t) => sum + (parseFloat(t.amount) || 0),
+    0,
+  );
+  const now = new Date();
+  const transfersThisMonth = safeTransfers.filter((t) => {
+    const d = new Date(t.createdAt);
+    return (
+      d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    );
+  }).length;
   const totalOrders = safeOrders.length;
 
   return (
@@ -439,7 +446,7 @@ export default function Dashboard() {
                     </h3>
                     <p className="text-gray-600 mb-4">
                       {dateFrom || dateTo
-                        ? "Aucun transfert ne correspond aux critères de date sélectionnés."
+                        ? t('dashboard.transfers.noTransfersDateText')
                         : t('dashboard.transfers.noTransfersText')}
                     </p>
                     {!dateFrom && !dateTo && (
@@ -558,7 +565,7 @@ export default function Dashboard() {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">
-                                Commande #{order.id.toString().padStart(6, '0')}
+                                {t('dashboard.orders.orderLabel')} #{order.id.toString().padStart(6, '0')}
                               </p>
                               <p className="text-sm text-gray-600">
                                 {new Date(order.createdAt).toLocaleDateString(
@@ -586,7 +593,7 @@ export default function Dashboard() {
                         <div className="ml-14 space-y-2">
                           {order.shippingAddress && (
                             <div className="text-sm text-gray-600">
-                              <span className="font-medium">Bénéficiaire:</span> {order.shippingAddress.firstName} {order.shippingAddress.lastName}
+                              <span className="font-medium">{t('dashboard.orders.beneficiary')}:</span> {order.shippingAddress.firstName} {order.shippingAddress.lastName}
                               {order.shippingAddress.phone && (
                                 <span className="ml-2">• {order.shippingAddress.phone}</span>
                               )}
@@ -595,14 +602,14 @@ export default function Dashboard() {
                           
                           {order.squarePaymentId && (
                             <div className="text-sm text-gray-500">
-                              <span className="font-medium">ID Transaction:</span> {order.squarePaymentId.slice(-8)}
+                              <span className="font-medium">{t('dashboard.orders.transactionId')}:</span> {order.squarePaymentId.slice(-8)}
                             </div>
                           )}
                           
                           <div className="flex items-center justify-between pt-2">
                             <div className="text-sm text-gray-600">
                               <i className="fas fa-info-circle mr-1"></i>
-                              Voir les détails complets
+                              {t('dashboard.orders.viewDetails')}
                             </div>
                             <Button 
                               variant="outline" 
@@ -613,7 +620,7 @@ export default function Dashboard() {
                                 window.location.href = "/order-success";
                               }}
                             >
-                              Détails
+                              {t('dashboard.orders.details')}
                             </Button>
                           </div>
                         </div>
@@ -628,7 +635,7 @@ export default function Dashboard() {
                           onClick={() => setShowAllOrders(true)}
                           className="flex items-center gap-2 mx-auto"
                         >
-                          Voir toutes les commandes ({orders.length})
+                          {t('dashboard.orders.viewAll', { count: orders.length })}
                         </Button>
                       </div>
                     )}
@@ -641,7 +648,7 @@ export default function Dashboard() {
                           onClick={() => setShowAllOrders(false)}
                           className="flex items-center gap-2 mx-auto"
                         >
-                          Voir les 10 plus récentes
+                          {t('dashboard.orders.viewLess')}
                         </Button>
                       </div>
                     )}
@@ -651,18 +658,18 @@ export default function Dashboard() {
                     <i className="fas fa-shopping-cart text-4xl text-gray-300 mb-4"></i>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">
                       {dateFrom || dateTo
-                        ? "Aucune commande trouvée"
-                        : "Aucune commande"}
+                        ? t('dashboard.orders.noOrdersFiltered')
+                        : t('dashboard.orders.noOrders')}
                     </h3>
                     <p className="text-gray-600 mb-4">
                       {dateFrom || dateTo
-                        ? "Aucune commande ne correspond aux critères de date sélectionnés."
-                        : "Vous n'avez pas encore passé de commande sur la marketplace."}
+                        ? t('dashboard.orders.noOrdersDateText')
+                        : t('dashboard.orders.noOrdersText')}
                     </p>
                     {!dateFrom && !dateTo && (
                       <Link href="/marketplace">
                         <Button className="bg-secondary hover:bg-secondary/90">
-                          Explorer la marketplace
+                          {t('dashboard.quickActions.exploreMarketplace')}
                         </Button>
                       </Link>
                     )}

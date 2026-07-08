@@ -211,14 +211,35 @@ export const translations = {
         title: "Historique des transferts",
         filters: "Filtres",
         new: "Nouveau transfert",
-        transferTo: "Transfert vers",
-        viewAll: "Voir tout",
+        transferTo: "Transfert vers {name}",
+        dateFrom: "Date de début",
+        dateTo: "Date de fin",
+        reset: "Réinitialiser",
+        viewAll: "Voir tous les transferts ({count})",
+        viewLess: "Voir les 10 plus récents",
         noTransfers: "Aucun transfert effectué",
-        noTransfersText: "Vous n'avez pas encore effectué de transferts."
+        noTransfersText: "Vous n'avez pas encore effectué de transferts.",
+        noTransfersDateText: "Aucun transfert ne correspond aux critères de date sélectionnés."
+      },
+      orders: {
+        title: "Historique des commandes",
+        orderLabel: "Commande",
+        beneficiary: "Bénéficiaire",
+        transactionId: "ID Transaction",
+        viewDetails: "Voir les détails complets",
+        details: "Détails",
+        viewAll: "Voir toutes les commandes ({count})",
+        viewLess: "Voir les 10 plus récentes",
+        noOrders: "Aucune commande",
+        noOrdersFiltered: "Aucune commande trouvée",
+        noOrdersText: "Vous n'avez pas encore passé de commande sur la marketplace.",
+        noOrdersDateText: "Aucune commande ne correspond aux critères de date sélectionnés."
       },
       status: {
         pending: "En attente",
+        processing: "En traitement",
         completed: "Terminé",
+        paid: "Payé",
         failed: "Échoué"
       }
     },
@@ -562,15 +583,35 @@ export const translations = {
         title: "Transfer history",
         filters: "Filters",
         new: "New transfer",
-        transferTo: "Transfer to",
-        viewAll: "View all",
+        transferTo: "Transfer to {name}",
+        dateFrom: "From date",
+        dateTo: "To date",
+        reset: "Reset",
+        viewAll: "View all transfers ({count})",
+        viewLess: "View 10 most recent",
         noTransfers: "No transfers made",
-        noTransfersText: "You haven't made any transfers yet."
-
+        noTransfersText: "You haven't made any transfers yet.",
+        noTransfersDateText: "No transfer matches the selected date criteria."
+      },
+      orders: {
+        title: "Order history",
+        orderLabel: "Order",
+        beneficiary: "Beneficiary",
+        transactionId: "Transaction ID",
+        viewDetails: "View full details",
+        details: "Details",
+        viewAll: "View all orders ({count})",
+        viewLess: "View 10 most recent",
+        noOrders: "No orders",
+        noOrdersFiltered: "No orders found",
+        noOrdersText: "You haven't placed any order on the marketplace yet.",
+        noOrdersDateText: "No order matches the selected date criteria."
       },
       status: {
         pending: "Pending",
+        processing: "Processing",
         completed: "Completed",
+        paid: "Paid",
         failed: "Failed"
       }
     },
