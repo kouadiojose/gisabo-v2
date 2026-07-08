@@ -1484,6 +1484,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Liste de TOUS les utilisateurs avec leurs statistiques (vue admin)
+  app.get("/api/admin/users", requireAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsersWithStats();
+      res.json(users);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Suppression d'un utilisateur (refusée s'il a des transferts/commandes)
+  app.delete("/api/admin/users/:id", requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur introuvable" });
+      }
+      // Sécurité : on ne supprime pas un utilisateur qui a de l'historique
+      // (contraintes de clés étrangères + conservation des données financières).
+      const transfers = await storage.getTransfersByUser(id);
+      const orders = await storage.getOrdersByUser(id);
+      if (transfers.length > 0 || orders.length > 0) {
+        return res.status(409).json({
+          message:
+            "Impossible de supprimer : cet utilisateur a des transferts ou des commandes.",
+        });
+      }
+      await storage.deleteUserById(id);
+      console.log(`🗑️ [ADMIN] Utilisateur ${id} supprimé`);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Renvoi manuel de la notification email d'un transfert (vue admin)
   app.post(
     "/api/admin/transfers/:id/resend-notification",

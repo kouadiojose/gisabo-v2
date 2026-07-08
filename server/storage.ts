@@ -11,6 +11,19 @@ export interface VisitStats {
   daily: { date: string; visitors: number }[];
 }
 
+export interface AdminUserRow {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  twoFactorEnabled: boolean;
+  createdAt: string;
+  transferCount: number;
+  orderCount: number;
+}
+
 export interface IStorage {
   // Health check
   healthCheck(): Promise<boolean>;
@@ -46,6 +59,10 @@ export interface IStorage {
   // Visites / analytics
   recordVisit(visit: InsertVisit): Promise<void>;
   getVisitStats(): Promise<VisitStats>;
+
+  // Administration des utilisateurs
+  getAllUsersWithStats(): Promise<AdminUserRow[]>;
+  deleteUserById(id: number): Promise<void>;
 
   // Moyens de paiement
   getPaymentMethods(userId: number): Promise<PaymentMethod[]>;
@@ -204,6 +221,35 @@ export class DatabaseStorage implements IStorage {
 
   async getOrdersByUser(userId: number): Promise<Order[]> {
     return await db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
+  }
+
+  async getAllUsersWithStats(): Promise<AdminUserRow[]> {
+    const result = await db.execute(sql`
+      SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.role,
+             u.two_factor_enabled, u.created_at,
+             (SELECT COUNT(*) FROM transfers t WHERE t.user_id = u.id)::int AS transfer_count,
+             (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id)::int AS order_count
+      FROM users u
+      ORDER BY u.created_at DESC
+    `);
+    return (result.rows ?? []).map((r: any) => ({
+      id: Number(r.id),
+      firstName: r.first_name,
+      lastName: r.last_name,
+      email: r.email,
+      phone: r.phone,
+      role: r.role,
+      twoFactorEnabled: r.two_factor_enabled,
+      createdAt: r.created_at,
+      transferCount: Number(r.transfer_count ?? 0),
+      orderCount: Number(r.order_count ?? 0),
+    }));
+  }
+
+  async deleteUserById(id: number): Promise<void> {
+    // Nettoyage des données sans contrainte FK (moyens de paiement)
+    await db.delete(paymentMethods).where(eq(paymentMethods.userId, id));
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async recordVisit(visit: InsertVisit): Promise<void> {
