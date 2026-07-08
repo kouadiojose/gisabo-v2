@@ -1177,7 +1177,7 @@ export default function AdminSidebar() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-gray-50 flex flex-col lg:flex-row">
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50 px-4 py-3">
         <div className="flex items-center justify-between">
