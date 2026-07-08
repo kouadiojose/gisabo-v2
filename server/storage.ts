@@ -63,6 +63,9 @@ export interface IStorage {
   // Administration des utilisateurs
   getAllUsersWithStats(): Promise<AdminUserRow[]>;
   deleteUserById(id: number): Promise<void>;
+  bulkInsertUsers(rows: (typeof users.$inferInsert)[]): Promise<number>;
+  getUserIdByLegacyId(legacyId: number): Promise<number | undefined>;
+  bulkInsertTransfers(rows: (typeof transfers.$inferInsert)[]): Promise<number>;
 
   // Moyens de paiement
   getPaymentMethods(userId: number): Promise<PaymentMethod[]>;
@@ -250,6 +253,49 @@ export class DatabaseStorage implements IStorage {
     // Nettoyage des données sans contrainte FK (moyens de paiement)
     await db.delete(paymentMethods).where(eq(paymentMethods.userId, id));
     await db.delete(users).where(eq(users.id, id));
+  }
+
+  async bulkInsertUsers(
+    rows: (typeof users.$inferInsert)[],
+  ): Promise<number> {
+    if (rows.length === 0) return 0;
+    let inserted = 0;
+    const chunkSize = 500;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const res = await db
+        .insert(users)
+        .values(chunk)
+        .onConflictDoNothing({ target: users.email })
+        .returning({ id: users.id });
+      inserted += res.length;
+    }
+    return inserted;
+  }
+
+  async getUserIdByLegacyId(legacyId: number): Promise<number | undefined> {
+    const [row] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.legacyId, legacyId));
+    return row?.id;
+  }
+
+  async bulkInsertTransfers(
+    rows: (typeof transfers.$inferInsert)[],
+  ): Promise<number> {
+    if (rows.length === 0) return 0;
+    let inserted = 0;
+    const chunkSize = 500;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const res = await db
+        .insert(transfers)
+        .values(chunk)
+        .returning({ id: transfers.id });
+      inserted += res.length;
+    }
+    return inserted;
   }
 
   async recordVisit(visit: InsertVisit): Promise<void> {

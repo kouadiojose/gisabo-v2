@@ -1,7 +1,7 @@
 import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertTransferSchema, insertOrderSchema, insertOrderItemSchema, insertExchangeRateSchema, insertServiceSchema, insertProductSchema, insertAdminSchema } from "@shared/schema";
+import { insertUserSchema, insertTransferSchema, insertOrderSchema, insertOrderItemSchema, insertExchangeRateSchema, insertServiceSchema, insertProductSchema, insertAdminSchema, users as usersTable, transfers as transfersTable } from "@shared/schema";
 import { applyAfterpayFee } from "@shared/payment-fees";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -11,6 +11,8 @@ import fs from "fs";
 import crypto from "crypto";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
+import { parse as parseCsv } from "csv-parse/sync";
+import iconv from "iconv-lite";
 import { sendTransferConfirmationEmail, sendOrderConfirmationEmail } from "./emailService";
 import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
@@ -95,6 +97,35 @@ const uploadProduct = multer({
     }
   }
 });
+
+// Upload en mémoire pour l'import CSV (fichiers volumineux → 30 Mo)
+const uploadCsv = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 },
+});
+
+// Un champ CSV vaut "NULL" (texte) ou vide → null applicatif
+function csvVal(v: any): string | null {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  if (s === "" || s.toUpperCase() === "NULL") return null;
+  return s;
+}
+
+// Parse un CSV Latin-1/Windows-1252 séparé par ';' en objets par colonne
+function parseCsvBuffer(buffer: Buffer): any[] {
+  const text = iconv.decode(buffer, "win1252");
+  return parseCsv(text, {
+    delimiter: ";",
+    quote: '"',
+    relax_quotes: true,
+    relax_column_count: true,
+    skip_empty_lines: true,
+    bom: true,
+    columns: true,
+    trim: true,
+  });
+}
 
 interface AuthRequest extends Request {
   user?: any;
@@ -1519,6 +1550,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+
+  // Import des utilisateurs de l'ancienne plateforme (CSV Laravel)
+  app.post(
+    "/api/admin/import/users",
+    requireAdmin,
+    uploadCsv.single("file"),
+    async (req: any, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "Fichier CSV manquant" });
+        }
+        const records = parseCsvBuffer(req.file.buffer);
+
+        const seen = new Set<string>();
+        let invalid = 0;
+        let duplicates = 0;
+        const rows: (typeof usersTable.$inferInsert)[] = [];
+
+        for (const r of records) {
+          const email = csvVal(r.email)?.toLowerCase();
+          const rawPw = csvVal(r.password);
+          if (!email || !rawPw) {
+            invalid++;
+            continue;
+          }
+          if (seen.has(email)) {
+            duplicates++;
+            continue;
+          }
+          seen.add(email);
+
+          // Hash Laravel bcrypt $2y$ -> $2b$ (compatible bcrypt Node)
+          const password = rawPw.startsWith("$2y$")
+            ? "$2b$" + rawPw.slice(4)
+            : rawPw;
+
+          const fullName = csvVal(r.name) || email.split("@")[0];
+          const parts = fullName.split(/\s+/).filter(Boolean);
+          const firstName = parts[0] || fullName;
+          const lastName = parts.slice(1).join(" ") || "-";
+
+          const legacyRaw = csvVal(r.id);
+          const legacyId = legacyRaw ? parseInt(legacyRaw) : null;
+
+          const createdRaw = csvVal(r.created_at);
+          let createdAt = createdRaw
+            ? new Date(createdRaw.replace(" ", "T"))
+            : new Date();
+          if (isNaN(createdAt.getTime())) createdAt = new Date();
+
+          rows.push({
+            username: email,
+            email,
+            password,
+            firstName,
+            lastName,
+            phone: csvVal(r.phone),
+            role: "user",
+            legacyId: legacyId && !isNaN(legacyId) ? legacyId : null,
+            createdAt,
+          });
+        }
+
+        const imported = await storage.bulkInsertUsers(rows);
+        const skippedExisting = rows.length - imported;
+
+        console.log(
+          `📥 [IMPORT] Utilisateurs : ${imported} importés / ${duplicates} doublons fichier / ${invalid} invalides / ${skippedExisting} déjà présents`,
+        );
+        res.json({
+          total: records.length,
+          imported,
+          duplicatesInFile: duplicates,
+          invalid,
+          alreadyPresent: skippedExisting,
+        });
+      } catch (error: any) {
+        console.error("🚨 [IMPORT] Utilisateurs:", error);
+        res.status(500).json({ message: error.message });
+      }
+    },
+  );
 
   // Renvoi manuel de la notification email d'un transfert (vue admin)
   app.post(

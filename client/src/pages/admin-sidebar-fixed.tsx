@@ -22,6 +22,7 @@ import {
   ShoppingCart,
   Users,
   Eye,
+  Upload,
 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -255,6 +256,40 @@ export default function AdminSidebar() {
       if (!response.ok) return [];
       const data = await response.json();
       return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const [importUsersFile, setImportUsersFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<any>(null);
+
+  const importUsersMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await makeAuthenticatedRequest(
+        "/api/admin/import/users",
+        { method: "POST", body: formData },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Import impossible");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setImportResult(data);
+      toast({
+        title: "Import terminé",
+        description: `${data.imported} utilisateur(s) importé(s).`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import impossible",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -886,6 +921,21 @@ export default function AdminSidebar() {
           >
             <Users className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">Utilisateurs</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSection("import");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+              activeSection === "import"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Upload className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Importer</span>
           </button>
         </nav>
 
@@ -2459,6 +2509,88 @@ export default function AdminSidebar() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Import Section */}
+          {activeSection === "import" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Importer des données
+                </h2>
+                <p className="text-gray-600">
+                  Migration des comptes depuis l'ancienne plateforme (CSV)
+                </p>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Importer les utilisateurs</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>
+                      Fichier CSV de la table <strong>users</strong> de
+                      l'ancienne plateforme (séparé par «&nbsp;;&nbsp;»).
+                    </p>
+                    <p>
+                      Les mots de passe Laravel (bcrypt) sont conservés : les
+                      utilisateurs se reconnectent avec leur mot de passe
+                      actuel. L'import est <strong>idempotent</strong> : relancer
+                      ne crée pas de doublons (reconnaissance par email).
+                    </p>
+                  </div>
+
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => {
+                      setImportUsersFile(e.target.files?.[0] || null);
+                      setImportResult(null);
+                    }}
+                    className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+
+                  <Button
+                    disabled={!importUsersFile || importUsersMutation.isPending}
+                    onClick={() =>
+                      importUsersFile &&
+                      importUsersMutation.mutate(importUsersFile)
+                    }
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {importUsersMutation.isPending
+                      ? "Import en cours…"
+                      : "Importer les utilisateurs"}
+                  </Button>
+
+                  {importResult && (
+                    <div className="mt-4 rounded-lg border border-gray-200 p-4 text-sm space-y-1">
+                      <p className="font-medium text-gray-900">
+                        Résultat de l'import
+                      </p>
+                      <p className="text-green-700">
+                        ✅ {importResult.imported} importé(s)
+                      </p>
+                      <p className="text-gray-600">
+                        ↩︎ {importResult.alreadyPresent} déjà présent(s)
+                        (ignorés)
+                      </p>
+                      <p className="text-gray-600">
+                        🔁 {importResult.duplicatesInFile} doublon(s) dans le
+                        fichier
+                      </p>
+                      <p className="text-gray-600">
+                        ⚠️ {importResult.invalid} ligne(s) invalide(s)
+                      </p>
+                      <p className="text-gray-400">
+                        {importResult.total} ligne(s) au total
+                      </p>
                     </div>
                   )}
                 </CardContent>
