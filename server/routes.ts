@@ -589,32 +589,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             payment.id
           );
 
-          // 📧 ENVOI D'EMAIL DE CONFIRMATION
-          if (updatedTransfer) {
-            try {
-              // Déterminer la méthode de paiement basée sur le source_type Square
-              const paymentMethod = payment.source_type === 'BUY_NOW_PAY_LATER' ? 'afterpay' : 'card';
-              
-              const emailSent = await sendTransferConfirmationEmail(
-                updatedTransfer,
-                req.user,
-                payment.id,
-                paymentMethod
-              );
-              if (emailSent) {
-                console.log(`✅ [EMAIL] Confirmation envoyée pour le transfert ${transferId}`);
-              } else {
-                console.log(`⚠️ [EMAIL] Échec d'envoi pour le transfert ${transferId}`);
-              }
-            } catch (emailError) {
-              console.error(`❌ [EMAIL] Erreur lors de l'envoi:`, emailError);
-              // Ne pas faire échouer le paiement si l'email échoue
-            }
-          }
-
-          // 🔒 RÉPONSE DE SUCCÈS AVEC INFORMATIONS MINIMALES
-          res.json({ 
-            success: true, 
+          // 🔒 RÉPONSE DE SUCCÈS IMMÉDIATE (ne pas attendre l'email : le client
+          // ne doit jamais rester bloqué sur l'écran de paiement à cause d'un
+          // envoi d'email lent).
+          res.json({
+            success: true,
             message: "Paiement traité avec succès",
             transfer: {
               id: updatedTransfer?.id,
@@ -626,8 +605,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             paymentId: payment.id,
             timestamp: new Date().toISOString()
           });
-          
+
           console.log(`🎉 [TRANSFERT COMPLÉTÉ] ${transferId} avec succès`);
+
+          // 📧 ENVOI D'EMAIL DE CONFIRMATION EN ARRIÈRE-PLAN (fire-and-forget)
+          if (updatedTransfer) {
+            const paymentMethod = payment.source_type === 'BUY_NOW_PAY_LATER' ? 'afterpay' : 'card';
+            sendTransferConfirmationEmail(
+              updatedTransfer,
+              req.user,
+              payment.id,
+              paymentMethod
+            )
+              .then((emailSent) => {
+                console.log(
+                  emailSent
+                    ? `✅ [EMAIL] Confirmation envoyée pour le transfert ${transferId}`
+                    : `⚠️ [EMAIL] Échec d'envoi pour le transfert ${transferId}`
+                );
+              })
+              .catch((emailError) => {
+                console.error(`❌ [EMAIL] Erreur lors de l'envoi:`, emailError);
+              });
+          }
           return;
         } else {
           console.error('🚨 [PAIEMENT] Réponse Square invalide:', result);
@@ -843,18 +843,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const updatedOrder = await storage.updateOrderStatus(order.id, "processing", payment.id);
           const orderItems = await storage.getOrderItems(order.id);
 
-          if (updatedOrder) {
-            try {
-              await sendOrderConfirmationEmail(updatedOrder, req.user, orderItems, payment.id);
-              console.log(`📧 Email de confirmation envoyé pour la commande ${order.id}`);
-            } catch (emailError) {
-              console.error(`❌ Erreur envoi email commande ${order.id}:`, emailError);
-              // On continue même si l'email échoue
-            }
-          }
-
           console.log(`🎉 [COMMANDE PAYÉE] ${order.id} avec succès`);
-          return res.json(updatedOrder);
+
+          // Répondre immédiatement, puis envoyer l'email en arrière-plan
+          // (fire-and-forget) pour ne pas bloquer le client.
+          res.json(updatedOrder);
+
+          if (updatedOrder) {
+            sendOrderConfirmationEmail(updatedOrder, req.user, orderItems, payment.id)
+              .then(() => {
+                console.log(`📧 Email de confirmation envoyé pour la commande ${order.id}`);
+              })
+              .catch((emailError) => {
+                console.error(`❌ Erreur envoi email commande ${order.id}:`, emailError);
+              });
+          }
+          return;
         } else {
           console.error('🚨 [PAIEMENT COMMANDE] Réponse Square invalide:', result);
           return res.status(400).json({
