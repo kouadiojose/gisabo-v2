@@ -67,6 +67,49 @@ if (process.env.RESEND_API_KEY) {
     );
 }
 
+// Gabarit HTML de campagne (marque GISABO) avec pied de page + désinscription.
+export function buildCampaignHtml(
+    messageHtml: string,
+    unsubscribeUrl?: string,
+): string {
+    return `
+    <div style="margin:0;padding:0;background:#f4f6f8;">
+      <div style="max-width:600px;margin:0 auto;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+        <div style="background:#1B5E9B;border-radius:12px 12px 0 0;padding:20px 24px;">
+          <h1 style="margin:0;color:#ffffff;font-size:22px;">GISABO</h1>
+        </div>
+        <div style="background:#ffffff;padding:24px;border:1px solid #e5e7eb;border-top:0;">
+          <div style="font-size:15px;line-height:1.6;">${messageHtml}</div>
+        </div>
+        <div style="padding:16px 24px;color:#9ca3af;font-size:12px;text-align:center;">
+          <p style="margin:0 0 6px 0;">Gisabo Group — Votre partenaire de confiance pour les transferts d'argent</p>
+          <p style="margin:0 0 6px 0;">gisabonet@gmail.com&nbsp;|&nbsp;+1 (613) 762-6686</p>
+          ${
+              unsubscribeUrl
+                  ? `<p style="margin:0;"><a href="${unsubscribeUrl}" style="color:#9ca3af;text-decoration:underline;">Se désabonner de ces communications</a></p>`
+                  : ""
+          }
+        </div>
+      </div>
+    </div>`;
+}
+
+// Envoi d'un email de campagne (mailing) via le fournisseur configuré.
+export async function sendCampaignEmail(input: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+}): Promise<void> {
+    await sendEmail({
+        from: `GISABO <${FROM_EMAIL}>`,
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        text: input.text || "",
+    });
+}
+
 // Listes de diffusion interne pour les notifications de transfert.
 // Le destinataire dépend du mode de livraison choisi par l'expéditeur.
 const TRANSFER_NOTIFICATION_EMAILS = {

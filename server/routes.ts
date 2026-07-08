@@ -13,7 +13,7 @@ import { authenticator } from "otplib";
 import QRCode from "qrcode";
 import { parse as parseCsv } from "csv-parse/sync";
 import iconv from "iconv-lite";
-import { sendTransferConfirmationEmail, sendOrderConfirmationEmail } from "./emailService";
+import { sendTransferConfirmationEmail, sendOrderConfirmationEmail, sendCampaignEmail, buildCampaignHtml } from "./emailService";
 import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
 
@@ -1733,6 +1733,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     },
   );
+
+  // === Mailing (campagnes email aux utilisateurs) ===
+
+  const escapeHtml = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  // Historique des campagnes
+  app.get("/api/admin/campaigns", requireAdmin, async (req: any, res) => {
+    try {
+      res.json(await storage.getCampaigns());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Envoyer une campagne (ou un test)
+  app.post("/api/admin/campaigns", requireAdmin, async (req: any, res) => {
+    try {
+      const { subject, message, test, testEmail } = req.body;
+      if (!subject || !message) {
+        return res.status(400).json({ message: "Objet et message requis" });
+      }
+      const messageHtml = escapeHtml(String(message)).replace(/\n/g, "<br>");
+      const appUrl = process.env.APP_URL || "https://gisabo-v2.up.railway.app";
+
+      // Mode test : un seul email vers l'adresse indiquée
+      if (test) {
+        if (!testEmail) {
+          return res
+            .status(400)
+            .json({ message: "Adresse de test requise" });
+        }
+        await sendCampaignEmail({
+          to: testEmail,
+          subject: `[TEST] ${subject}`,
+          html: buildCampaignHtml(messageHtml),
+          text: message,
+        });
+        return res.json({ test: true });
+      }
+
+      const recipients = await storage.getMailableUsers();
+      if (recipients.length === 0) {
+        return res
+          .status(400)
+          .json({ message: "Aucun destinataire (tous désabonnés ?)" });
+      }
+      const campaign = await storage.createCampaign({
+        subject,
+        body: message,
+        audience: "all",
+        total: recipients.length,
+      });
+
+      // Réponse immédiate ; l'envoi se fait en arrière-plan
+      res.json({ campaignId: campaign.id, total: recipients.length });
+
+      (async () => {
+        let sent = 0;
+        let failed = 0;
+        const concurrency = 4;
+        for (let i = 0; i < recipients.length; i += concurrency) {
+          const batch = recipients.slice(i, i + concurrency);
+          await Promise.all(
+            batch.map(async (u) => {
+              try {
+                const token = jwt.sign(
+                  { userId: u.id, unsub: true },
+                  JWT_SECRET,
+                  { expiresIn: "365d" },
+                );
+                const unsubscribeUrl = `${appUrl}/unsubscribe?token=${token}`;
+                await sendCampaignEmail({
+                  to: u.email,
+                  subject,
+                  html: buildCampaignHtml(messageHtml, unsubscribeUrl),
+                  text: message,
+                });
+                sent++;
+              } catch (e) {
+                failed++;
+              }
+            }),
+          );
+          await storage.updateCampaign(campaign.id, { sent, failed });
+          await new Promise((r) => setTimeout(r, 300)); // respecter les limites
+        }
+        await storage.updateCampaign(campaign.id, {
+          sent,
+          failed,
+          status: "done",
+        });
+        console.log(
+          `📧 [CAMPAGNE ${campaign.id}] terminée : ${sent} envoyés, ${failed} échecs`,
+        );
+      })().catch(async (e) => {
+        console.error("🚨 [CAMPAGNE] Erreur:", e);
+        await storage.updateCampaign(campaign.id, { status: "failed" });
+      });
+    } catch (error: any) {
+      console.error("🚨 [CAMPAGNE] Erreur:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Désinscription (public, lien dans le pied de page des emails)
+  app.get("/unsubscribe", async (req, res) => {
+    const token = String(req.query.token || "");
+    const page = (title: string, msg: string) => `<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title></head>
+<body style="font-family:Arial,sans-serif;background:#f4f6f8;margin:0;padding:40px;text-align:center;color:#1f2937;">
+<div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;">
+<h1 style="color:#1B5E9B;margin-top:0;">GISABO</h1><p style="font-size:16px;">${msg}</p></div></body></html>`;
+    try {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
+      if (decoded.unsub && decoded.userId) {
+        await storage.setEmailOptOut(decoded.userId);
+      }
+      res
+        .status(200)
+        .send(
+          page(
+            "Désabonnement",
+            "Vous avez été désabonné de nos communications. Vous ne recevrez plus d'emails d'information de notre part.",
+          ),
+        );
+    } catch {
+      res
+        .status(400)
+        .send(page("Lien invalide", "Ce lien de désabonnement est invalide ou a expiré."));
+    }
+  });
 
   // Renvoi manuel de la notification email d'un transfert (vue admin)
   app.post(

@@ -16,6 +16,20 @@ export const users = pgTable("users", {
   twoFactorSecret: text("two_factor_secret"), // secret TOTP (jamais exposé au client)
   squareCustomerId: text("square_customer_id"), // client Square (cartes enregistrées)
   legacyId: integer("legacy_id"), // ID sur l'ancienne plateforme (migration)
+  emailOptOut: boolean("email_opt_out").notNull().default(false), // désabonnement mailing
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Campagnes email (mailing) envoyées aux utilisateurs
+export const emailCampaigns = pgTable("email_campaigns", {
+  id: serial("id").primaryKey(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  audience: text("audience").notNull().default("all"),
+  total: integer("total").notNull().default(0),
+  sent: integer("sent").notNull().default(0),
+  failed: integer("failed").notNull().default(0),
+  status: text("status").notNull().default("sending"), // sending, done, failed
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -279,3 +293,4 @@ export type Visit = typeof visits.$inferSelect;
 export type InsertVisit = z.infer<typeof insertVisitSchema>;
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+export type EmailCampaign = typeof emailCampaigns.$inferSelect;
