@@ -9,6 +9,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { authenticator } from "otplib";
+import QRCode from "qrcode";
 import { sendTransferConfirmationEmail, sendOrderConfirmationEmail } from "./emailService";
 import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
@@ -99,6 +101,16 @@ interface AuthRequest extends Request {
 }
 
 // Middleware to verify JWT token
+// Tolère une dérive d'horloge de ±1 pas (±30s) lors de la vérification TOTP
+authenticator.options = { window: 1 };
+
+// Retire les champs sensibles avant d'envoyer un utilisateur au client
+function sanitizeUser(user: any) {
+  if (!user) return user;
+  const { password, twoFactorSecret, ...safe } = user;
+  return safe;
+}
+
 const authenticateToken = async (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -220,6 +232,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).send("Identifiants invalides");
       }
 
+      // Si la 2FA est activée, ne pas délivrer le token tout de suite :
+      // exiger un code TOTP via un jeton d'attente de courte durée (5 min).
+      if (user.twoFactorEnabled) {
+        const pendingToken = jwt.sign(
+          { userId: user.id, twofa: "pending" },
+          JWT_SECRET,
+          { expiresIn: "5m" },
+        );
+        return res.json({ requires2FA: true, pendingToken });
+      }
+
       const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
       res.json({
@@ -231,9 +254,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Étape 2 de la connexion quand la 2FA est activée : vérifie le code TOTP
+  app.post("/api/auth/login/2fa", async (req, res) => {
+    try {
+      const { pendingToken, token: code } = req.body;
+      if (!pendingToken || !code) {
+        return res.status(400).json({ message: "Code requis" });
+      }
+
+      let decoded: any;
+      try {
+        decoded = jwt.verify(pendingToken, JWT_SECRET);
+      } catch {
+        return res
+          .status(401)
+          .json({ message: "Session expirée, veuillez vous reconnecter." });
+      }
+      if (decoded.twofa !== "pending") {
+        return res.status(401).json({ message: "Jeton invalide" });
+      }
+
+      const user = await storage.getUser(decoded.userId);
+      if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
+        return res.status(401).json({ message: "2FA non configurée" });
+      }
+
+      const isValid = authenticator.verify({
+        token: String(code).replace(/\s/g, ""),
+        secret: user.twoFactorSecret,
+      });
+      if (!isValid) {
+        return res.status(401).json({ message: "Code d'authentification invalide" });
+      }
+
+      const authToken = jwt.sign({ userId: user.id }, JWT_SECRET, {
+        expiresIn: "7d",
+      });
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+        token: authToken,
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   app.get("/api/auth/me", authenticateToken, async (req: any, res) => {
-    const { password, ...userWithoutPassword } = req.user;
-    res.json({ user: userWithoutPassword });
+    res.json({ user: sanitizeUser(req.user) });
+  });
+
+  // === 2FA (TOTP - application d'authentification) ===
+
+  // Démarre la configuration : génère un secret + QR code (pas encore activé)
+  app.post("/api/2fa/setup", authenticateToken, async (req: any, res) => {
+    try {
+      const secret = authenticator.generateSecret();
+      const otpauthUrl = authenticator.keyuri(
+        req.user.email,
+        "GISABO",
+        secret,
+      );
+      // On enregistre le secret mais 2FA reste désactivée tant que non vérifiée
+      await storage.updateUser(req.user.id, {
+        twoFactorSecret: secret,
+        twoFactorEnabled: false,
+      });
+      const qrCode = await QRCode.toDataURL(otpauthUrl);
+      res.json({ qrCode, secret, otpauthUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Vérifie le premier code et active la 2FA
+  app.post("/api/2fa/enable", authenticateToken, async (req: any, res) => {
+    try {
+      const { token: code } = req.body;
+      if (!code) return res.status(400).json({ message: "Code requis" });
+
+      const user = await storage.getUser(req.user.id);
+      if (!user?.twoFactorSecret) {
+        return res
+          .status(400)
+          .json({ message: "Configuration 2FA non initialisée" });
+      }
+      const isValid = authenticator.verify({
+        token: String(code).replace(/\s/g, ""),
+        secret: user.twoFactorSecret,
+      });
+      if (!isValid) {
+        return res.status(400).json({ message: "Code invalide" });
+      }
+      await storage.updateUser(req.user.id, { twoFactorEnabled: true });
+      res.json({ success: true, twoFactorEnabled: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Désactive la 2FA (nécessite un code TOTP valide)
+  app.post("/api/2fa/disable", authenticateToken, async (req: any, res) => {
+    try {
+      const { token: code } = req.body;
+      const user = await storage.getUser(req.user.id);
+      if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
+        return res.json({ success: true, twoFactorEnabled: false });
+      }
+      const isValid = authenticator.verify({
+        token: String(code || "").replace(/\s/g, ""),
+        secret: user.twoFactorSecret,
+      });
+      if (!isValid) {
+        return res.status(400).json({ message: "Code invalide" });
+      }
+      await storage.updateUser(req.user.id, {
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+      });
+      res.json({ success: true, twoFactorEnabled: false });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   // Authentication status endpoint for mobile app
@@ -276,8 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      const { password, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
+      res.json(sanitizeUser(updatedUser));
     } catch (error: any) {
       console.error('Error updating profile:', error);
       res.status(500).json({ message: 'Failed to update profile' });

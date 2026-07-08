@@ -24,6 +24,13 @@ export default function Profile() {
   const authenticated = isAuthenticated();
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState<{
+    qrCode: string;
+    secret: string;
+  } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [isDisabling2FA, setIsDisabling2FA] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -141,22 +148,29 @@ export default function Profile() {
     },
   });
 
-  // Enable 2FA mutation
-  const enable2FAMutation = useMutation({
+  // 2FA — étape 1 : générer le secret + QR code
+  const setup2FAMutation = useMutation({
     mutationFn: async () => {
-      const token = localStorage.getItem("authToken");
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-      
-      const response = await fetch("/api/enable-2fa", {
-        method: "POST",
-        headers,
+      const response = await apiRequest("POST", "/api/2fa/setup");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTwoFactorSetup({ qrCode: data.qrCode, secret: data.secret });
+      setTwoFactorCode("");
+    },
+    onError: () => {
+      toast({
+        title: t("common.error"),
+        description: t("profile.security.twoFactorError"),
+        variant: "destructive",
       });
-      if (!response.ok) throw new Error("Failed to enable 2FA");
+    },
+  });
+
+  // 2FA — étape 2 : vérifier le premier code et activer
+  const enable2FAMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await apiRequest("POST", "/api/2fa/enable", { token: code });
       return response.json();
     },
     onSuccess: () => {
@@ -164,11 +178,38 @@ export default function Profile() {
         title: t("profile.security.twoFactorEnabled"),
         description: t("profile.security.twoFactorEnabledDesc"),
       });
+      setTwoFactorSetup(null);
+      setTwoFactorCode("");
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: t("common.error"),
-        description: t("profile.security.twoFactorError"),
+        description: error.message || t("profile.security.twoFactorInvalidCode"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // 2FA — désactivation (nécessite un code valide)
+  const disable2FAMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await apiRequest("POST", "/api/2fa/disable", { token: code });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t("profile.security.twoFactorDisabled"),
+        description: t("profile.security.twoFactorDisabledDesc"),
+      });
+      setIsDisabling2FA(false);
+      setDisableCode("");
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("profile.security.twoFactorInvalidCode"),
         variant: "destructive",
       });
     },
@@ -393,13 +434,123 @@ export default function Profile() {
                 <Separator />
                 
                 <div>
-                  <h3 className="text-lg font-semibold mb-3">{t("profile.security.twoFactor")}</h3>
+                  <div className="flex items-center gap-3 mb-3">
+                    <h3 className="text-lg font-semibold">{t("profile.security.twoFactor")}</h3>
+                    {user.twoFactorEnabled && (
+                      <Badge className="bg-green-100 text-green-800">
+                        {t("profile.security.twoFactorActive")}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground mb-4">
                     {t("profile.security.twoFactorDesc")}
                   </p>
-                  <Button variant="outline">
-                    {t("profile.security.enableTwoFactor")}
-                  </Button>
+
+                  {/* Cas 1 : 2FA déjà activée → possibilité de désactiver */}
+                  {user.twoFactorEnabled ? (
+                    !isDisabling2FA ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsDisabling2FA(true);
+                          setDisableCode("");
+                        }}
+                      >
+                        {t("profile.security.disableTwoFactor")}
+                      </Button>
+                    ) : (
+                      <div className="space-y-3 p-4 border rounded-lg max-w-sm">
+                        <Label htmlFor="disableCode">
+                          {t("profile.security.enterCodeToDisable")}
+                        </Label>
+                        <Input
+                          id="disableCode"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          placeholder="123456"
+                          value={disableCode}
+                          onChange={(e) => setDisableCode(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            variant="destructive"
+                            disabled={
+                              disableCode.length < 6 || disable2FAMutation.isPending
+                            }
+                            onClick={() => disable2FAMutation.mutate(disableCode)}
+                          >
+                            {disable2FAMutation.isPending
+                              ? t("common.loading")
+                              : t("profile.security.disableTwoFactor")}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsDisabling2FA(false)}
+                          >
+                            {t("common.cancel")}
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  ) : twoFactorSetup ? (
+                    /* Cas 2 : configuration en cours → QR + saisie du code */
+                    <div className="space-y-4 p-4 border rounded-lg max-w-md">
+                      <p className="text-sm">
+                        {t("profile.security.scanQr")}
+                      </p>
+                      <img
+                        src={twoFactorSetup.qrCode}
+                        alt="QR code 2FA"
+                        className="w-44 h-44 border rounded-lg bg-white p-2"
+                      />
+                      <p className="text-xs text-muted-foreground break-all">
+                        {t("profile.security.manualKey")} :{" "}
+                        <span className="font-mono">{twoFactorSetup.secret}</span>
+                      </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="twoFactorCode">
+                          {t("profile.security.enterCode")}
+                        </Label>
+                        <Input
+                          id="twoFactorCode"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          placeholder="123456"
+                          value={twoFactorCode}
+                          onChange={(e) => setTwoFactorCode(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          disabled={
+                            twoFactorCode.length < 6 || enable2FAMutation.isPending
+                          }
+                          onClick={() => enable2FAMutation.mutate(twoFactorCode)}
+                        >
+                          {enable2FAMutation.isPending
+                            ? t("common.loading")
+                            : t("profile.security.verifyAndEnable")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setTwoFactorSetup(null)}
+                        >
+                          {t("common.cancel")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Cas 3 : rien encore → bouton d'activation */
+                    <Button
+                      variant="outline"
+                      disabled={setup2FAMutation.isPending}
+                      onClick={() => setup2FAMutation.mutate()}
+                    >
+                      {setup2FAMutation.isPending
+                        ? t("common.loading")
+                        : t("profile.security.enableTwoFactor")}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

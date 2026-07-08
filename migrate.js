@@ -277,6 +277,15 @@ async function runMigration() {
       console.error('[MIGRATE] Impossible de préparer la table visits:', e.message);
     }
 
+    // Colonnes 2FA sur users (idempotent, sans perte de données)
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN NOT NULL DEFAULT false;`);
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret TEXT;`);
+      console.log('✅ Colonnes 2FA prêtes.');
+    } catch (e) {
+      console.error('[MIGRATE] Impossible de préparer les colonnes 2FA:', e.message);
+    }
+
     // Vérifier si la migration a déjà été exécutée
     try {
       const check = await client.query('SELECT COUNT(*) FROM categories');

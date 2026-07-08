@@ -251,7 +251,17 @@ export const translations = {
         enableTwoFactor: "Activer l'authentification à deux facteurs",
         twoFactorEnabled: "Authentification à deux facteurs activée",
         twoFactorEnabledDesc: "Votre compte est désormais mieux protégé.",
-        twoFactorError: "Impossible d'activer l'authentification à deux facteurs."
+        twoFactorError: "Impossible d'activer l'authentification à deux facteurs.",
+        twoFactorActive: "Activée",
+        disableTwoFactor: "Désactiver",
+        enterCodeToDisable: "Entrez un code de votre application pour désactiver",
+        scanQr: "Scannez ce QR code avec votre application d'authentification (Google Authenticator, Authy…), puis entrez le code à 6 chiffres pour activer.",
+        manualKey: "Clé manuelle",
+        enterCode: "Code à 6 chiffres",
+        verifyAndEnable: "Vérifier et activer",
+        twoFactorInvalidCode: "Code invalide. Veuillez réessayer.",
+        twoFactorDisabled: "2FA désactivée",
+        twoFactorDisabledDesc: "L'authentification à deux facteurs a été désactivée."
       },
       payment: {
         title: "Moyens de paiement",
@@ -700,7 +710,17 @@ export const translations = {
         enableTwoFactor: "Enable two-factor authentication",
         twoFactorEnabled: "Two-factor authentication enabled",
         twoFactorEnabledDesc: "Your account is now better protected.",
-        twoFactorError: "Unable to enable two-factor authentication."
+        twoFactorError: "Unable to enable two-factor authentication.",
+        twoFactorActive: "Enabled",
+        disableTwoFactor: "Disable",
+        enterCodeToDisable: "Enter a code from your app to disable",
+        scanQr: "Scan this QR code with your authenticator app (Google Authenticator, Authy…), then enter the 6-digit code to enable.",
+        manualKey: "Manual key",
+        enterCode: "6-digit code",
+        verifyAndEnable: "Verify and enable",
+        twoFactorInvalidCode: "Invalid code. Please try again.",
+        twoFactorDisabled: "2FA disabled",
+        twoFactorDisabledDesc: "Two-factor authentication has been disabled."
       },
       payment: {
         title: "Payment methods",

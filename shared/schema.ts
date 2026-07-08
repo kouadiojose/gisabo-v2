@@ -12,6 +12,8 @@ export const users = pgTable("users", {
   lastName: text("last_name").notNull(),
   phone: text("phone"),
   role: text("role").notNull().default("user"), // user, admin
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
+  twoFactorSecret: text("two_factor_secret"), // secret TOTP (jamais exposé au client)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
