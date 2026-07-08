@@ -126,6 +126,28 @@ interface EmailCampaign {
   createdAt: string;
 }
 
+interface AdminAccount {
+  id: number;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isActive: boolean;
+  lastLogin: string | null;
+  createdAt: string;
+}
+
+function currentAdminId(): number | null {
+  try {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return null;
+    return JSON.parse(atob(token.split(".")[1])).adminId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const PAGE_SIZE = 20;
 
 function Pagination({
@@ -494,6 +516,155 @@ export default function AdminSidebar() {
         variant: "destructive",
       });
     },
+  });
+
+  // Paramètres : mot de passe + gestion des admins
+  const meAdminId = currentAdminId();
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [newAdmin, setNewAdmin] = useState({
+    username: "",
+    email: "",
+    firstName: "",
+    lastName: "",
+    password: "",
+    role: "admin",
+  });
+
+  const { data: admins } = useQuery<AdminAccount[]>({
+    queryKey: ["/api/admin/admins"],
+    enabled: isAdminAuthenticated(),
+    queryFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/admins");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const changeAdminPasswordMutation = useMutation({
+    mutationFn: async () => {
+      const response = await makeAuthenticatedRequest(
+        "/api/admin/change-password",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            currentPassword: pwCurrent,
+            newPassword: pwNew,
+          }),
+        },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Modification impossible");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mot de passe modifié",
+        description: "Votre mot de passe administrateur a été mis à jour.",
+      });
+      setPwCurrent("");
+      setPwNew("");
+      setPwConfirm("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Modification impossible",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createAdminMutation = useMutation({
+    mutationFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newAdmin),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Création impossible");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Administrateur créé",
+        description: "Le nouvel accès admin a été créé.",
+      });
+      setNewAdmin({
+        username: "",
+        email: "",
+        firstName: "",
+        lastName: "",
+        password: "",
+        role: "admin",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/admins"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Création impossible",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleAdminMutation = useMutation({
+    mutationFn: async (vars: { id: number; isActive: boolean }) => {
+      const response = await makeAuthenticatedRequest(
+        `/api/admin/admins/${vars.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: vars.isActive }),
+        },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Action impossible");
+      }
+      return response.json();
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/admins"] }),
+    onError: (error: any) =>
+      toast({
+        title: "Action impossible",
+        description: error.message,
+        variant: "destructive",
+      }),
+  });
+
+  const deleteAdminMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await makeAuthenticatedRequest(
+        `/api/admin/admins/${id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Suppression impossible");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Administrateur supprimé" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/admins"] });
+    },
+    onError: (error: any) =>
+      toast({
+        title: "Suppression impossible",
+        description: error.message,
+        variant: "destructive",
+      }),
   });
 
   const deleteUserMutation = useMutation({
@@ -1355,6 +1526,21 @@ export default function AdminSidebar() {
           >
             <Mail className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">Emails</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSection("settings");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+              activeSection === "settings"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Settings className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Paramètres</span>
           </button>
         </nav>
 
@@ -3435,6 +3621,267 @@ export default function AdminSidebar() {
                       </table>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Paramètres Section */}
+          {activeSection === "settings" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Paramètres
+                </h2>
+                <p className="text-gray-600">
+                  Sécurité de votre compte et gestion des administrateurs
+                </p>
+              </div>
+
+              {/* Mon mot de passe */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mon mot de passe</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 max-w-md">
+                  <div>
+                    <Label htmlFor="pwCurrent">Mot de passe actuel</Label>
+                    <Input
+                      id="pwCurrent"
+                      type="password"
+                      value={pwCurrent}
+                      onChange={(e) => setPwCurrent(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="pwNew">Nouveau mot de passe</Label>
+                    <Input
+                      id="pwNew"
+                      type="password"
+                      value={pwNew}
+                      onChange={(e) => setPwNew(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="pwConfirm">Confirmer le mot de passe</Label>
+                    <Input
+                      id="pwConfirm"
+                      type="password"
+                      value={pwConfirm}
+                      onChange={(e) => setPwConfirm(e.target.value)}
+                      className="mt-1"
+                    />
+                    {pwConfirm && pwNew !== pwConfirm && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Les mots de passe ne correspondent pas.
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    disabled={
+                      !pwCurrent ||
+                      pwNew.length < 6 ||
+                      pwNew !== pwConfirm ||
+                      changeAdminPasswordMutation.isPending
+                    }
+                    onClick={() => changeAdminPasswordMutation.mutate()}
+                  >
+                    {changeAdminPasswordMutation.isPending
+                      ? "Modification…"
+                      : "Modifier le mot de passe"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Créer un administrateur */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ajouter un administrateur</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Prénom</Label>
+                      <Input
+                        value={newAdmin.firstName}
+                        onChange={(e) =>
+                          setNewAdmin({ ...newAdmin, firstName: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Nom</Label>
+                      <Input
+                        value={newAdmin.lastName}
+                        onChange={(e) =>
+                          setNewAdmin({ ...newAdmin, lastName: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Nom d'utilisateur</Label>
+                      <Input
+                        value={newAdmin.username}
+                        onChange={(e) =>
+                          setNewAdmin({ ...newAdmin, username: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newAdmin.email}
+                        onChange={(e) =>
+                          setNewAdmin({ ...newAdmin, email: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Mot de passe</Label>
+                      <Input
+                        type="password"
+                        value={newAdmin.password}
+                        onChange={(e) =>
+                          setNewAdmin({ ...newAdmin, password: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label>Rôle</Label>
+                      <select
+                        value={newAdmin.role}
+                        onChange={(e) =>
+                          setNewAdmin({ ...newAdmin, role: e.target.value })
+                        }
+                        className="mt-1 w-full p-2 border border-gray-300 rounded-md text-sm"
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="super_admin">Super admin</option>
+                      </select>
+                    </div>
+                  </div>
+                  <Button
+                    disabled={
+                      !newAdmin.username ||
+                      !newAdmin.email ||
+                      !newAdmin.firstName ||
+                      !newAdmin.lastName ||
+                      newAdmin.password.length < 6 ||
+                      createAdminMutation.isPending
+                    }
+                    onClick={() => createAdminMutation.mutate()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {createAdminMutation.isPending
+                      ? "Création…"
+                      : "Créer l'administrateur"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Liste des administrateurs */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {admins?.length || 0} administrateur
+                    {(admins?.length || 0) > 1 ? "s" : ""}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-gray-500">
+                          <th className="py-2 pr-4 font-medium">Nom</th>
+                          <th className="py-2 pr-4 font-medium">Utilisateur</th>
+                          <th className="py-2 pr-4 font-medium">Email</th>
+                          <th className="py-2 pr-4 font-medium">Rôle</th>
+                          <th className="py-2 pr-4 font-medium">Statut</th>
+                          <th className="py-2 pr-4 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(admins || []).map((a) => (
+                          <tr key={a.id} className="border-b last:border-0">
+                            <td className="py-2 pr-4 text-gray-900">
+                              {a.firstName} {a.lastName}
+                              {a.id === meAdminId && (
+                                <span className="ml-2 text-xs text-blue-600">
+                                  (vous)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-600">
+                              {a.username}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-600">
+                              {a.email}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-600">
+                              {a.role === "super_admin"
+                                ? "Super admin"
+                                : "Admin"}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <Badge
+                                variant={a.isActive ? "default" : "secondary"}
+                              >
+                                {a.isActive ? "Actif" : "Désactivé"}
+                              </Badge>
+                            </td>
+                            <td className="py-2 pr-4">
+                              {a.id === meAdminId ? (
+                                <span className="text-xs text-gray-400">
+                                  Compte courant
+                                </span>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={toggleAdminMutation.isPending}
+                                    onClick={() =>
+                                      toggleAdminMutation.mutate({
+                                        id: a.id,
+                                        isActive: !a.isActive,
+                                      })
+                                    }
+                                  >
+                                    {a.isActive ? "Désactiver" : "Activer"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 hover:text-red-700"
+                                    disabled={deleteAdminMutation.isPending}
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          `Supprimer l'administrateur ${a.firstName} ${a.lastName} ?`,
+                                        )
+                                      ) {
+                                        deleteAdminMutation.mutate(a.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
             </div>

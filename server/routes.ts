@@ -1923,6 +1923,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // === Paramètres admin (gestion des administrateurs) ===
+
+  const sanitizeAdmin = (a: any) => {
+    if (!a) return a;
+    const { password, ...safe } = a;
+    return safe;
+  };
+
+  // Changer son propre mot de passe admin
+  app.post(
+    "/api/admin/change-password",
+    requireAdmin,
+    async (req: any, res) => {
+      try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+          return res
+            .status(400)
+            .json({ message: "Mot de passe actuel et nouveau requis" });
+        }
+        if (String(newPassword).length < 6) {
+          return res.status(400).json({
+            message: "Le nouveau mot de passe doit faire au moins 6 caractères",
+          });
+        }
+        const ok = await bcrypt.compare(currentPassword, req.admin.password);
+        if (!ok) {
+          return res
+            .status(400)
+            .json({ message: "Mot de passe actuel incorrect" });
+        }
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await storage.updateAdmin(req.admin.id, { password: hashed });
+        res.json({ success: true });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    },
+  );
+
+  // Liste des administrateurs
+  app.get("/api/admin/admins", requireAdmin, async (req: any, res) => {
+    try {
+      const list = await storage.getAllAdmins();
+      res.json(list.map(sanitizeAdmin));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Créer un administrateur
+  app.post("/api/admin/admins", requireAdmin, async (req: any, res) => {
+    try {
+      const { username, email, firstName, lastName, password, role } = req.body;
+      if (!username || !email || !firstName || !lastName || !password) {
+        return res
+          .status(400)
+          .json({ message: "Tous les champs sont requis" });
+      }
+      if (String(password).length < 6) {
+        return res.status(400).json({
+          message: "Le mot de passe doit faire au moins 6 caractères",
+        });
+      }
+      if (
+        (await storage.getAdminByUsername(username)) ||
+        (await storage.getAdminByEmail(email))
+      ) {
+        return res.status(409).json({
+          message: "Un administrateur avec ce nom ou cet email existe déjà",
+        });
+      }
+      const hashed = await bcrypt.hash(password, 10);
+      const admin = await storage.createAdmin({
+        username,
+        email,
+        firstName,
+        lastName,
+        password: hashed,
+        role: role === "super_admin" ? "super_admin" : "admin",
+      } as any);
+      res.status(201).json(sanitizeAdmin(admin));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Activer / désactiver ou changer le rôle d'un administrateur
+  app.patch("/api/admin/admins/:id", requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { isActive, role } = req.body;
+      if (id === req.admin.id && isActive === false) {
+        return res
+          .status(400)
+          .json({ message: "Vous ne pouvez pas désactiver votre propre compte" });
+      }
+      const data: any = {};
+      if (typeof isActive === "boolean") data.isActive = isActive;
+      if (role === "admin" || role === "super_admin") data.role = role;
+      if (Object.keys(data).length === 0) {
+        return res.status(400).json({ message: "Aucune modification" });
+      }
+      const updated = await storage.updateAdmin(id, data);
+      if (!updated) {
+        return res.status(404).json({ message: "Administrateur introuvable" });
+      }
+      res.json(sanitizeAdmin(updated));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Supprimer un administrateur
+  app.delete("/api/admin/admins/:id", requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (id === req.admin.id) {
+        return res
+          .status(400)
+          .json({ message: "Vous ne pouvez pas supprimer votre propre compte" });
+      }
+      const count = await storage.countAdmins();
+      if (count <= 1) {
+        return res
+          .status(400)
+          .json({ message: "Impossible de supprimer le dernier administrateur" });
+      }
+      await storage.deleteAdmin(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Renvoi manuel de la notification email d'un transfert (vue admin)
   app.post(
     "/api/admin/transfers/:id/resend-notification",

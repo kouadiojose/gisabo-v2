@@ -114,6 +114,10 @@ export interface IStorage {
   getAdminByEmail(email: string): Promise<Admin | undefined>;
   createAdmin(admin: InsertAdmin): Promise<Admin>;
   updateAdminLastLogin(id: number): Promise<void>;
+  getAllAdmins(): Promise<Admin[]>;
+  updateAdmin(id: number, data: Partial<{ password: string; isActive: boolean; role: string; firstName: string; lastName: string }>): Promise<Admin | undefined>;
+  deleteAdmin(id: number): Promise<void>;
+  countAdmins(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -630,6 +634,37 @@ export class DatabaseStorage implements IStorage {
       .update(admins)
       .set({ lastLogin: new Date() })
       .where(eq(admins.id, id));
+  }
+
+  async getAllAdmins(): Promise<Admin[]> {
+    return await db.select().from(admins).orderBy(desc(admins.createdAt));
+  }
+
+  async updateAdmin(
+    id: number,
+    data: Partial<{
+      password: string;
+      isActive: boolean;
+      role: string;
+      firstName: string;
+      lastName: string;
+    }>,
+  ): Promise<Admin | undefined> {
+    const [admin] = await db
+      .update(admins)
+      .set(data)
+      .where(eq(admins.id, id))
+      .returning();
+    return admin || undefined;
+  }
+
+  async deleteAdmin(id: number): Promise<void> {
+    await db.delete(admins).where(eq(admins.id, id));
+  }
+
+  async countAdmins(): Promise<number> {
+    const rows = await db.select({ id: admins.id }).from(admins);
+    return rows.length;
   }
 }
 
