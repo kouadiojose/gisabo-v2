@@ -24,7 +24,10 @@ import {
   Eye,
   Upload,
   Mail,
+  Download,
 } from "lucide-react";
+import RichTextEditor from "@/components/rich-text-editor";
+import { exportToCsv } from "@/lib/export-csv";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 
@@ -383,6 +386,8 @@ export default function AdminSidebar() {
   const [mailSubject, setMailSubject] = useState("");
   const [mailMessage, setMailMessage] = useState("");
   const [mailTestEmail, setMailTestEmail] = useState("");
+  const [mailAudience, setMailAudience] = useState<"all" | "selected">("all");
+  const [mailRecipients, setMailRecipients] = useState("");
 
   const { data: campaigns } = useQuery<EmailCampaign[]>({
     queryKey: ["/api/admin/campaigns"],
@@ -437,7 +442,12 @@ export default function AdminSidebar() {
       const response = await makeAuthenticatedRequest("/api/admin/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: mailSubject, message: mailMessage }),
+        body: JSON.stringify({
+          subject: mailSubject,
+          message: mailMessage,
+          audience: mailAudience,
+          recipients: mailAudience === "selected" ? mailRecipients : undefined,
+        }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
@@ -452,6 +462,7 @@ export default function AdminSidebar() {
       });
       setMailSubject("");
       setMailMessage("");
+      setMailRecipients("");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/campaigns"] });
     },
     onError: (error: any) => {
@@ -616,6 +627,48 @@ export default function AdminSidebar() {
     () => usFiltered.slice((usPage - 1) * PAGE_SIZE, usPage * PAGE_SIZE),
     [usFiltered, usPage],
   );
+
+  const fmtDate = (d: string) =>
+    d ? new Date(d).toLocaleDateString("fr-FR") : "";
+
+  const exportTransactions = () =>
+    exportToCsv(
+      "transactions.csv",
+      [
+        "ID", "Date", "Bénéficiaire", "Téléphone", "Destination",
+        "Montant", "Devise", "Reçu", "Devise reçue", "Méthode", "Statut",
+      ],
+      txFiltered.map((t) => [
+        t.id, fmtDate(t.createdAt), t.recipientName, t.recipientPhone,
+        t.destinationCountry, Number(t.amount).toFixed(2), t.currency,
+        Number(t.receivedAmount).toFixed(2), t.destinationCurrency,
+        t.deliveryMethod, t.status,
+      ]),
+    );
+
+  const exportOrders = () =>
+    exportToCsv(
+      "commandes.csv",
+      ["ID", "Date", "Client", "Total", "Devise", "Paiement Square", "Statut"],
+      odFiltered.map((o) => [
+        o.id, fmtDate(o.createdAt), `Client #${o.userId}`,
+        Number(o.total).toFixed(2), o.currency, o.squarePaymentId || "", o.status,
+      ]),
+    );
+
+  const exportUsers = () =>
+    exportToCsv(
+      "utilisateurs.csv",
+      [
+        "ID", "Prénom", "Nom", "Email", "Téléphone", "2FA",
+        "Transferts", "Commandes", "Inscrit le",
+      ],
+      usFiltered.map((u) => [
+        u.id, u.firstName, u.lastName, u.email, u.phone || "",
+        u.twoFactorEnabled ? "Oui" : "Non", u.transferCount, u.orderCount,
+        fmtDate(u.createdAt),
+      ]),
+    );
 
   // Statistiques calculées dynamiquement à partir des transferts et commandes
   const stats = useMemo(() => {
@@ -2436,10 +2489,21 @@ export default function AdminSidebar() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>
-                    {transfers?.length || 0} transfert
-                    {(transfers?.length || 0) > 1 ? "s" : ""}
-                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <CardTitle>
+                      {transfers?.length || 0} transfert
+                      {(transfers?.length || 0) > 1 ? "s" : ""}
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!txFiltered.length}
+                      onClick={exportTransactions}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Exporter (Excel)
+                    </Button>
+                  </div>
                   <Input
                     placeholder="Rechercher (bénéficiaire, téléphone, statut, ID…)"
                     value={txSearch}
@@ -2568,10 +2632,21 @@ export default function AdminSidebar() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>
-                    {orders?.length || 0} commande
-                    {(orders?.length || 0) > 1 ? "s" : ""}
-                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <CardTitle>
+                      {orders?.length || 0} commande
+                      {(orders?.length || 0) > 1 ? "s" : ""}
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!odFiltered.length}
+                      onClick={exportOrders}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Exporter (Excel)
+                    </Button>
+                  </div>
                   <Input
                     placeholder="Rechercher (ID, client, statut, paiement…)"
                     value={odSearch}
@@ -2690,10 +2765,21 @@ export default function AdminSidebar() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>
-                    {adminUsers?.length || 0} utilisateur
-                    {(adminUsers?.length || 0) > 1 ? "s" : ""}
-                  </CardTitle>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <CardTitle>
+                      {adminUsers?.length || 0} utilisateur
+                      {(adminUsers?.length || 0) > 1 ? "s" : ""}
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!usFiltered.length}
+                      onClick={exportUsers}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Exporter (Excel)
+                    </Button>
+                  </div>
                   <Input
                     placeholder="Rechercher (nom, email, téléphone, ID…)"
                     value={usSearch}
@@ -2987,19 +3073,57 @@ export default function AdminSidebar() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="mailMessage">Message</Label>
-                    <Textarea
-                      id="mailMessage"
-                      value={mailMessage}
-                      onChange={(e) => setMailMessage(e.target.value)}
-                      placeholder="Rédigez votre message… (les sauts de ligne sont conservés)"
-                      rows={8}
-                      className="mt-1"
-                    />
+                    <Label>Message</Label>
+                    <div className="mt-1">
+                      <RichTextEditor
+                        value={mailMessage}
+                        onChange={setMailMessage}
+                        placeholder="Rédigez votre message… (gras, italique, listes, liens)"
+                      />
+                    </div>
                     <p className="text-xs text-gray-400 mt-1">
                       Le message est habillé automatiquement (en-tête GISABO,
                       pied de page, lien de désabonnement).
                     </p>
+                  </div>
+
+                  {/* Choix des destinataires */}
+                  <div>
+                    <Label>Destinataires</Label>
+                    <div className="flex flex-wrap gap-4 mt-2 text-sm">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="audience"
+                          checked={mailAudience === "all"}
+                          onChange={() => setMailAudience("all")}
+                        />
+                        Tous les utilisateurs abonnés
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="audience"
+                          checked={mailAudience === "selected"}
+                          onChange={() => setMailAudience("selected")}
+                        />
+                        Adresses spécifiques
+                      </label>
+                    </div>
+                    {mailAudience === "selected" && (
+                      <div className="mt-2">
+                        <Textarea
+                          value={mailRecipients}
+                          onChange={(e) => setMailRecipients(e.target.value)}
+                          placeholder="email1@exemple.com, email2@exemple.com…"
+                          rows={3}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          Séparez les adresses par une virgule, un espace ou un
+                          retour à la ligne (1 ou plusieurs).
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
@@ -3035,14 +3159,15 @@ export default function AdminSidebar() {
                       disabled={
                         !mailSubject ||
                         !mailMessage ||
+                        (mailAudience === "selected" && !mailRecipients.trim()) ||
                         sendCampaignMutation.isPending
                       }
                       onClick={() => {
-                        if (
-                          window.confirm(
-                            "Envoyer cet email à TOUS les utilisateurs abonnés ?",
-                          )
-                        ) {
+                        const confirmMsg =
+                          mailAudience === "all"
+                            ? "Envoyer cet email à TOUS les utilisateurs abonnés ?"
+                            : "Envoyer cet email aux adresses sélectionnées ?";
+                        if (window.confirm(confirmMsg)) {
                           sendCampaignMutation.mutate();
                         }
                       }}
@@ -3050,7 +3175,9 @@ export default function AdminSidebar() {
                       <Mail className="h-4 w-4 mr-2" />
                       {sendCampaignMutation.isPending
                         ? "Lancement…"
-                        : "Envoyer à tous les utilisateurs"}
+                        : mailAudience === "all"
+                          ? "Envoyer à tous les utilisateurs"
+                          : "Envoyer aux adresses choisies"}
                     </Button>
                     <p className="text-xs text-gray-400 mt-2">
                       ⚠️ Selon votre offre Resend, un plafond quotidien peut
