@@ -65,6 +65,7 @@ export interface IStorage {
   deleteUserById(id: number): Promise<void>;
   bulkInsertUsers(rows: (typeof users.$inferInsert)[]): Promise<number>;
   getUserIdByLegacyId(legacyId: number): Promise<number | undefined>;
+  getLegacyUserIdMap(): Promise<Map<number, number>>;
   bulkInsertTransfers(rows: (typeof transfers.$inferInsert)[]): Promise<number>;
 
   // Moyens de paiement
@@ -281,6 +282,18 @@ export class DatabaseStorage implements IStorage {
     return row?.id;
   }
 
+  // Map { ancien_user_id -> nouvel_id } pour relier l'historique importé
+  async getLegacyUserIdMap(): Promise<Map<number, number>> {
+    const rows = await db
+      .select({ id: users.id, legacyId: users.legacyId })
+      .from(users);
+    const map = new Map<number, number>();
+    for (const r of rows) {
+      if (r.legacyId != null) map.set(r.legacyId, r.id);
+    }
+    return map;
+  }
+
   async bulkInsertTransfers(
     rows: (typeof transfers.$inferInsert)[],
   ): Promise<number> {
@@ -292,6 +305,7 @@ export class DatabaseStorage implements IStorage {
       const res = await db
         .insert(transfers)
         .values(chunk)
+        .onConflictDoNothing({ target: transfers.legacyId })
         .returning({ id: transfers.id });
       inserted += res.length;
     }

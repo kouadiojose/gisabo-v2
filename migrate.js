@@ -290,7 +290,10 @@ async function runMigration() {
     try {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS legacy_id INTEGER;`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_users_legacy_id ON users (legacy_id);`);
-      console.log('✅ Colonne legacy_id prête.');
+      await client.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS legacy_id INTEGER;`);
+      // Index UNIQUE (NULLs multiples autorisés) → import des transferts idempotent
+      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_transfers_legacy_id ON transfers (legacy_id);`);
+      console.log('✅ Colonnes legacy_id prêtes.');
     } catch (e) {
       console.error('[MIGRATE] Impossible de préparer legacy_id:', e.message);
     }
