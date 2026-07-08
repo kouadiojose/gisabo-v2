@@ -98,6 +98,19 @@ interface VisitStats {
   daily: { date: string; visitors: number }[];
 }
 
+interface AdminUser {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  twoFactorEnabled: boolean;
+  createdAt: string;
+  transferCount: number;
+  orderCount: number;
+}
+
 function isAdminAuthenticated(): boolean {
   const token = localStorage.getItem("adminToken");
   if (!token) return false;
@@ -231,6 +244,45 @@ export default function AdminSidebar() {
       if (!response.ok) return [];
       const data = await response.json();
       return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const { data: adminUsers } = useQuery<AdminUser[]>({
+    queryKey: ["/api/admin/users"],
+    enabled: isAdminAuthenticated(),
+    queryFn: async () => {
+      const response = await makeAuthenticatedRequest("/api/admin/users");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await makeAuthenticatedRequest(
+        `/api/admin/users/${id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Suppression impossible");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Utilisateur supprimé",
+        description: "Le compte a été supprimé.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Suppression impossible",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -819,6 +871,21 @@ export default function AdminSidebar() {
           >
             <ShoppingCart className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">Commandes</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSection("users");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+              activeSection === "users"
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Users className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Utilisateurs</span>
           </button>
         </nav>
 
@@ -2273,6 +2340,120 @@ export default function AdminSidebar() {
                                         : "Renvoyer"}
                                     </Button>
                                   )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Utilisateurs Section */}
+          {activeSection === "users" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Utilisateurs
+                </h2>
+                <p className="text-gray-600">
+                  Liste des comptes clients de la plateforme
+                </p>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {adminUsers?.length || 0} utilisateur
+                    {(adminUsers?.length || 0) > 1 ? "s" : ""}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!adminUsers || adminUsers.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Aucun utilisateur pour le moment.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-gray-500">
+                            <th className="py-2 pr-4 font-medium">ID</th>
+                            <th className="py-2 pr-4 font-medium">Nom</th>
+                            <th className="py-2 pr-4 font-medium">Email</th>
+                            <th className="py-2 pr-4 font-medium">Téléphone</th>
+                            <th className="py-2 pr-4 font-medium">2FA</th>
+                            <th className="py-2 pr-4 font-medium">Transferts</th>
+                            <th className="py-2 pr-4 font-medium">Commandes</th>
+                            <th className="py-2 pr-4 font-medium">Inscrit le</th>
+                            <th className="py-2 pr-4 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adminUsers.map((u) => (
+                            <tr key={u.id} className="border-b last:border-0">
+                              <td className="py-2 pr-4 text-gray-900">#{u.id}</td>
+                              <td className="py-2 pr-4 text-gray-900">
+                                {u.firstName} {u.lastName}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                {u.email}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                {u.phone || "—"}
+                              </td>
+                              <td className="py-2 pr-4">
+                                {u.twoFactorEnabled ? (
+                                  <Badge className="bg-green-100 text-green-800">
+                                    Oui
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary">Non</Badge>
+                                )}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                {u.transferCount}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600">
+                                {u.orderCount}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
+                                {new Date(u.createdAt).toLocaleDateString(
+                                  "fr-FR",
+                                )}
+                              </td>
+                              <td className="py-2 pr-4">
+                                {u.transferCount === 0 &&
+                                u.orderCount === 0 ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 hover:text-red-700 whitespace-nowrap"
+                                    disabled={
+                                      deleteUserMutation.isPending &&
+                                      deleteUserMutation.variables === u.id
+                                    }
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          `Supprimer le compte de ${u.firstName} ${u.lastName} ?`,
+                                        )
+                                      ) {
+                                        deleteUserMutation.mutate(u.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                    Supprimer
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-gray-400">
+                                    Historique présent
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           ))}
