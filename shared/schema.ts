@@ -160,6 +160,17 @@ export const admins = pgTable("admins", {
   lastLogin: timestamp("last_login"),
 });
 
+// Visites de la plateforme (analytics légers, anonymes)
+export const visits = pgTable("visits", {
+  id: serial("id").primaryKey(),
+  visitorId: text("visitor_id").notNull(), // identifiant anonyme persistant (localStorage)
+  path: text("path"),
+  referrer: text("referrer"),
+  userAgent: text("user_agent"),
+  ipHash: text("ip_hash"), // IP hachée (jamais stockée en clair)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -216,6 +227,11 @@ export const insertAdminSchema = createInsertSchema(admins).omit({
   lastLogin: true,
 });
 
+export const insertVisitSchema = createInsertSchema(visits).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -235,3 +251,5 @@ export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Admin = typeof admins.$inferSelect;
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
+export type Visit = typeof visits.$inferSelect;
+export type InsertVisit = z.infer<typeof insertVisitSchema>;

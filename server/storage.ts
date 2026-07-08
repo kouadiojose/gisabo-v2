@@ -1,6 +1,15 @@
-import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin } from "@shared/schema";
+import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
+
+export interface VisitStats {
+  totalPageViews: number;
+  uniqueVisitors: number;
+  visitorsToday: number;
+  visitors7d: number;
+  visitors30d: number;
+  daily: { date: string; visitors: number }[];
+}
 
 export interface IStorage {
   // Health check
@@ -33,6 +42,10 @@ export interface IStorage {
   // Orders
   getOrdersByUser(userId: number): Promise<Order[]>;
   getAllOrders(): Promise<Order[]>;
+
+  // Visites / analytics
+  recordVisit(visit: InsertVisit): Promise<void>;
+  getVisitStats(): Promise<VisitStats>;
   getOrder(id: number): Promise<Order | undefined>;
   getOrderBySquarePaymentId(squarePaymentId: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
@@ -185,6 +198,53 @@ export class DatabaseStorage implements IStorage {
 
   async getOrdersByUser(userId: number): Promise<Order[]> {
     return await db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
+  }
+
+  async recordVisit(visit: InsertVisit): Promise<void> {
+    await db.insert(visits).values(visit);
+  }
+
+  async getVisitStats(): Promise<VisitStats> {
+    const summary = await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_page_views,
+        COUNT(DISTINCT visitor_id)::int AS unique_visitors,
+        COUNT(DISTINCT visitor_id) FILTER (WHERE created_at >= CURRENT_DATE)::int AS visitors_today,
+        COUNT(DISTINCT visitor_id) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS visitors_7d,
+        COUNT(DISTINCT visitor_id) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS visitors_30d
+      FROM visits
+    `);
+    const row: any = summary.rows?.[0] ?? {};
+
+    const daily = await db.execute(sql`
+      SELECT to_char(d.day, 'YYYY-MM-DD') AS date,
+             COALESCE(v.visitors, 0)::int AS visitors
+      FROM generate_series(
+             CURRENT_DATE - INTERVAL '6 days',
+             CURRENT_DATE,
+             INTERVAL '1 day'
+           ) AS d(day)
+      LEFT JOIN (
+        SELECT date_trunc('day', created_at) AS day,
+               COUNT(DISTINCT visitor_id) AS visitors
+        FROM visits
+        WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'
+        GROUP BY 1
+      ) v ON v.day = d.day
+      ORDER BY d.day
+    `);
+
+    return {
+      totalPageViews: Number(row.total_page_views ?? 0),
+      uniqueVisitors: Number(row.unique_visitors ?? 0),
+      visitorsToday: Number(row.visitors_today ?? 0),
+      visitors7d: Number(row.visitors_7d ?? 0),
+      visitors30d: Number(row.visitors_30d ?? 0),
+      daily: (daily.rows ?? []).map((r: any) => ({
+        date: r.date,
+        visitors: Number(r.visitors ?? 0),
+      })),
+    };
   }
 
   async getOrder(id: number): Promise<Order | undefined> {

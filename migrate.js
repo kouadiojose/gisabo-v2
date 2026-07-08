@@ -256,6 +256,27 @@ async function runMigration() {
     await client.connect();
     console.log('✅ Connexion établie!');
 
+    // Tables additionnelles idempotentes (sans DROP) — créées à CHAQUE démarrage,
+    // même quand la migration principale est ignorée (base déjà initialisée).
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS visits (
+          id SERIAL PRIMARY KEY,
+          visitor_id TEXT NOT NULL,
+          path TEXT,
+          referrer TEXT,
+          user_agent TEXT,
+          ip_hash TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_visits_created_at ON visits (created_at);`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_visits_visitor_id ON visits (visitor_id);`);
+      console.log('✅ Table visits prête.');
+    } catch (e) {
+      console.error('[MIGRATE] Impossible de préparer la table visits:', e.message);
+    }
+
     // Vérifier si la migration a déjà été exécutée
     try {
       const check = await client.query('SELECT COUNT(*) FROM categories');
