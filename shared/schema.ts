@@ -15,6 +15,7 @@ export const users = pgTable("users", {
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   twoFactorSecret: text("two_factor_secret"), // secret TOTP (jamais exposé au client)
   squareCustomerId: text("square_customer_id"), // client Square (cartes enregistrées)
+  legacyId: integer("legacy_id"), // ID sur l'ancienne plateforme (migration)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

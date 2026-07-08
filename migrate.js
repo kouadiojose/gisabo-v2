@@ -286,6 +286,15 @@ async function runMigration() {
       console.error('[MIGRATE] Impossible de préparer les colonnes 2FA:', e.message);
     }
 
+    // Colonne de migration (ID ancienne plateforme) — idempotent
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS legacy_id INTEGER;`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_users_legacy_id ON users (legacy_id);`);
+      console.log('✅ Colonne legacy_id prête.');
+    } catch (e) {
+      console.error('[MIGRATE] Impossible de préparer legacy_id:', e.message);
+    }
+
     // Moyens de paiement (cartes Square « on file ») — idempotent
     try {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS square_customer_id TEXT;`);
