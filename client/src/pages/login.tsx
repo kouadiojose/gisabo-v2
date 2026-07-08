@@ -17,6 +17,17 @@ export default function Login() {
     email: "",
     password: "",
   });
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+
+  const finishLogin = (data: any) => {
+    setAuthToken(data.token);
+    toast({
+      title: "Connexion réussie",
+      description: `Bienvenue, ${data.user.firstName}!`,
+    });
+    navigate("/dashboard");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,16 +53,52 @@ export default function Login() {
 
       const data = await response.json();
 
-      setAuthToken(data.token);
-      toast({
-        title: "Connexion réussie",
-        description: `Bienvenue, ${data.user.firstName}!`,
-      });
+      // Compte protégé par 2FA : passer à l'étape de saisie du code
+      if (data.requires2FA) {
+        setPendingToken(data.pendingToken);
+        setTwoFactorCode("");
+        toast({
+          title: "Vérification en deux étapes",
+          description: "Entrez le code de votre application d'authentification.",
+        });
+        return;
+      }
 
-      navigate("/dashboard");
+      finishLogin(data);
     } catch (error: any) {
       toast({
         title: "Erreur de connexion",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/login/2fa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pendingToken,
+          token: twoFactorCode.replace(/\s/g, ""),
+        }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        let msg;
+        try { msg = JSON.parse(text).message; } catch { msg = text; }
+        throw new Error(msg || "Code invalide");
+      }
+      const data = await response.json();
+      finishLogin(data);
+    } catch (error: any) {
+      toast({
+        title: "Échec de la vérification",
         description: error.message,
         variant: "destructive",
       });
@@ -78,11 +125,63 @@ export default function Login() {
               <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <i className="fas fa-globe-africa text-white text-2xl"></i>
               </div>
-              <CardTitle className="text-2xl font-bold font-poppins">Connexion</CardTitle>
-              <p className="text-gray-600">Connectez-vous à votre compte GISABO</p>
+              <CardTitle className="text-2xl font-bold font-poppins">
+                {pendingToken ? "Vérification en deux étapes" : "Connexion"}
+              </CardTitle>
+              <p className="text-gray-600">
+                {pendingToken
+                  ? "Entrez le code à 6 chiffres de votre application d'authentification"
+                  : "Connectez-vous à votre compte GISABO"}
+              </p>
             </CardHeader>
-            
+
             <CardContent>
+              {pendingToken ? (
+                <form onSubmit={handleVerify2FA} className="space-y-6">
+                  <div>
+                    <Label htmlFor="twoFactorCode">Code d'authentification</Label>
+                    <Input
+                      id="twoFactorCode"
+                      name="twoFactorCode"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={twoFactorCode}
+                      onChange={(e) => setTwoFactorCode(e.target.value)}
+                      required
+                      autoFocus
+                      className="mt-1 text-center tracking-[0.5em] text-lg"
+                      placeholder="123456"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={isLoading || twoFactorCode.replace(/\s/g, "").length < 6}
+                    className="w-full bg-primary hover:bg-primary-600 text-white"
+                  >
+                    {isLoading ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                        Vérification...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-shield-alt mr-2"></i>
+                        Vérifier
+                      </>
+                    )}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingToken(null);
+                      setTwoFactorCode("");
+                    }}
+                    className="w-full text-sm text-gray-600 hover:text-primary"
+                  >
+                    ← Retour à la connexion
+                  </button>
+                </form>
+              ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <Label htmlFor="email">Adresse email</Label>
@@ -130,6 +229,7 @@ export default function Login() {
                   )}
                 </Button>
               </form>
+              )}
 
               <div className="mt-6 text-center">
                 <p className="text-gray-600">
