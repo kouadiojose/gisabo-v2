@@ -267,7 +267,18 @@ export const translations = {
         title: "Moyens de paiement",
         description: "Gérez vos moyens de paiement enregistrés.",
         noMethods: "Aucun moyen de paiement enregistré.",
-        addMethod: "Ajouter un moyen de paiement"
+        addMethod: "Ajouter un moyen de paiement",
+        card: "Carte",
+        expires: "Expire",
+        remove: "Supprimer",
+        saveCard: "Enregistrer la carte",
+        cardLoadError: "Impossible de charger le formulaire de carte. Réessayez.",
+        cardInvalid: "Carte invalide. Vérifiez les informations saisies.",
+        cardAdded: "Carte enregistrée",
+        cardAddedDesc: "Votre moyen de paiement a été ajouté avec succès.",
+        cardRemoved: "Carte supprimée",
+        cardRemovedDesc: "Le moyen de paiement a été retiré.",
+        cardError: "Une erreur est survenue avec le moyen de paiement."
       },
       activity: {
         title: "Activité récente",
@@ -726,7 +737,18 @@ export const translations = {
         title: "Payment methods",
         description: "Manage your saved payment methods.",
         noMethods: "No payment method saved.",
-        addMethod: "Add a payment method"
+        addMethod: "Add a payment method",
+        card: "Card",
+        expires: "Expires",
+        remove: "Remove",
+        saveCard: "Save card",
+        cardLoadError: "Unable to load the card form. Please try again.",
+        cardInvalid: "Invalid card. Please check the details entered.",
+        cardAdded: "Card saved",
+        cardAddedDesc: "Your payment method has been added successfully.",
+        cardRemoved: "Card removed",
+        cardRemovedDesc: "The payment method has been removed.",
+        cardError: "An error occurred with the payment method."
       },
       activity: {
         title: "Recent activity",

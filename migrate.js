@@ -286,6 +286,27 @@ async function runMigration() {
       console.error('[MIGRATE] Impossible de préparer les colonnes 2FA:', e.message);
     }
 
+    // Moyens de paiement (cartes Square « on file ») — idempotent
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS square_customer_id TEXT;`);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS payment_methods (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          square_card_id TEXT NOT NULL,
+          brand TEXT,
+          last4 TEXT,
+          exp_month INTEGER,
+          exp_year INTEGER,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_payment_methods_user_id ON payment_methods (user_id);`);
+      console.log('✅ Table payment_methods prête.');
+    } catch (e) {
+      console.error('[MIGRATE] Impossible de préparer payment_methods:', e.message);
+    }
+
     // Vérifier si la migration a déjà été exécutée
     try {
       const check = await client.query('SELECT COUNT(*) FROM categories');

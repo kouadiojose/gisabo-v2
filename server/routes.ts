@@ -383,6 +383,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // === Moyens de paiement (cartes Square « on file ») ===
+
+  const squareBaseUrl = () =>
+    process.env.SQUARE_ENVIRONMENT === "production"
+      ? "https://connect.squareup.com"
+      : "https://connect.squareupsandbox.com";
+  const squareHeaders = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+    "Square-Version": "2023-10-18",
+  });
+
+  // Liste des cartes enregistrées de l'utilisateur
+  app.get("/api/payment-methods", authenticateToken, async (req: any, res) => {
+    try {
+      const methods = await storage.getPaymentMethods(req.user.id);
+      res.json(methods);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Enregistre une nouvelle carte (tokenisée côté client) chez Square
+  app.post("/api/payment-methods", authenticateToken, async (req: any, res) => {
+    try {
+      const { sourceId } = req.body;
+      if (!sourceId) {
+        return res.status(400).json({ message: "Carte manquante" });
+      }
+      if (!process.env.SQUARE_ACCESS_TOKEN) {
+        return res.status(500).json({ message: "Paiement non configuré" });
+      }
+
+      // 1. S'assurer que l'utilisateur a un client Square
+      let customerId = req.user.squareCustomerId;
+      if (!customerId) {
+        const custRes = await fetch(`${squareBaseUrl()}/v2/customers`, {
+          method: "POST",
+          headers: squareHeaders(),
+          body: JSON.stringify({
+            idempotency_key: crypto.randomUUID(),
+            given_name: req.user.firstName,
+            family_name: req.user.lastName,
+            email_address: req.user.email,
+          }),
+        });
+        const custData = await custRes.json();
+        if (!custRes.ok || !custData.customer) {
+          console.error("🚨 [CARTE] Création client Square:", custData);
+          return res
+            .status(502)
+            .json({ message: "Impossible de créer le profil de paiement" });
+        }
+        customerId = custData.customer.id;
+        await storage.updateUser(req.user.id, { squareCustomerId: customerId });
+      }
+
+      // 2. Vaulter la carte chez Square (card-on-file)
+      const cardRes = await fetch(`${squareBaseUrl()}/v2/cards`, {
+        method: "POST",
+        headers: squareHeaders(),
+        body: JSON.stringify({
+          idempotency_key: crypto.randomUUID(),
+          source_id: sourceId,
+          card: { customer_id: customerId },
+        }),
+      });
+      const cardData = await cardRes.json();
+      if (!cardRes.ok || !cardData.card) {
+        console.error("🚨 [CARTE] Enregistrement Square:", cardData);
+        return res.status(400).json({
+          message:
+            cardData.errors?.[0]?.detail ||
+            "Impossible d'enregistrer la carte",
+        });
+      }
+
+      // 3. Sauvegarder uniquement les métadonnées (jamais le numéro complet)
+      const c = cardData.card;
+      const saved = await storage.createPaymentMethod({
+        userId: req.user.id,
+        squareCardId: c.id,
+        brand: c.card_brand || null,
+        last4: c.last_4 || null,
+        expMonth: c.exp_month || null,
+        expYear: c.exp_year || null,
+      });
+      res.status(201).json(saved);
+    } catch (error: any) {
+      console.error("🚨 [CARTE] Erreur:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Supprime une carte enregistrée
+  app.delete(
+    "/api/payment-methods/:id",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        const method = await storage.getPaymentMethod(id);
+        if (!method || method.userId !== req.user.id) {
+          return res.status(404).json({ message: "Carte introuvable" });
+        }
+        // Désactiver la carte chez Square (best-effort)
+        try {
+          await fetch(
+            `${squareBaseUrl()}/v2/cards/${method.squareCardId}/disable`,
+            { method: "POST", headers: squareHeaders() },
+          );
+        } catch (e) {
+          console.error("⚠️ [CARTE] Désactivation Square échouée:", e);
+        }
+        await storage.deletePaymentMethod(id);
+        res.json({ success: true });
+      } catch (error: any) {
+        res.status(500).json({ message: error.message });
+      }
+    },
+  );
+
   // Authentication status endpoint for mobile app
   app.get("/api/auth/status", (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '');

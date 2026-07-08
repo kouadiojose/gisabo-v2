@@ -1,4 +1,4 @@
-import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit } from "@shared/schema";
+import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, paymentMethods, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit, type PaymentMethod, type InsertPaymentMethod } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -46,6 +46,12 @@ export interface IStorage {
   // Visites / analytics
   recordVisit(visit: InsertVisit): Promise<void>;
   getVisitStats(): Promise<VisitStats>;
+
+  // Moyens de paiement
+  getPaymentMethods(userId: number): Promise<PaymentMethod[]>;
+  getPaymentMethod(id: number): Promise<PaymentMethod | undefined>;
+  createPaymentMethod(pm: InsertPaymentMethod): Promise<PaymentMethod>;
+  deletePaymentMethod(id: number): Promise<void>;
   getOrder(id: number): Promise<Order | undefined>;
   getOrderBySquarePaymentId(squarePaymentId: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
@@ -202,6 +208,31 @@ export class DatabaseStorage implements IStorage {
 
   async recordVisit(visit: InsertVisit): Promise<void> {
     await db.insert(visits).values(visit);
+  }
+
+  async getPaymentMethods(userId: number): Promise<PaymentMethod[]> {
+    return await db
+      .select()
+      .from(paymentMethods)
+      .where(eq(paymentMethods.userId, userId))
+      .orderBy(desc(paymentMethods.createdAt));
+  }
+
+  async getPaymentMethod(id: number): Promise<PaymentMethod | undefined> {
+    const [pm] = await db
+      .select()
+      .from(paymentMethods)
+      .where(eq(paymentMethods.id, id));
+    return pm || undefined;
+  }
+
+  async createPaymentMethod(pm: InsertPaymentMethod): Promise<PaymentMethod> {
+    const [created] = await db.insert(paymentMethods).values(pm).returning();
+    return created;
+  }
+
+  async deletePaymentMethod(id: number): Promise<void> {
+    await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
   }
 
   async getVisitStats(): Promise<VisitStats> {
