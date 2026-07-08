@@ -112,6 +112,46 @@ interface AdminUser {
   orderCount: number;
 }
 
+const PAGE_SIZE = 20;
+
+function Pagination({
+  page,
+  total,
+  onPage,
+}: {
+  page: number;
+  total: number;
+  onPage: (p: number) => void;
+}) {
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  return (
+    <div className="flex items-center justify-between mt-4 text-sm flex-wrap gap-2">
+      <span className="text-gray-500">
+        Page {Math.min(page, pages)} / {pages} · {total} résultat
+        {total > 1 ? "s" : ""}
+      </span>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page <= 1}
+          onClick={() => onPage(page - 1)}
+        >
+          Précédent
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page >= pages}
+          onClick={() => onPage(page + 1)}
+        >
+          Suivant
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function isAdminAuthenticated(): boolean {
   const token = localStorage.getItem("adminToken");
   if (!token) return false;
@@ -261,6 +301,10 @@ export default function AdminSidebar() {
 
   const [importUsersFile, setImportUsersFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<any>(null);
+  const [importTransfersFile, setImportTransfersFile] = useState<File | null>(
+    null,
+  );
+  const [importTransfersResult, setImportTransfersResult] = useState<any>(null);
 
   const importUsersMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -283,6 +327,37 @@ export default function AdminSidebar() {
         description: `${data.imported} utilisateur(s) importé(s).`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import impossible",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importTransfersMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await makeAuthenticatedRequest(
+        "/api/admin/import/transfers",
+        { method: "POST", body: formData },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Import impossible");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setImportTransfersResult(data);
+      toast({
+        title: "Import terminé",
+        description: `${data.imported} transfert(s) importé(s).`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/transfers"] });
     },
     onError: (error: any) => {
       toast({
@@ -393,6 +468,59 @@ export default function AdminSidebar() {
       });
     },
   });
+
+  // Recherche + pagination des tableaux (côté client)
+  const [txSearch, setTxSearch] = useState("");
+  const [txPage, setTxPage] = useState(1);
+  const [odSearch, setOdSearch] = useState("");
+  const [odPage, setOdPage] = useState(1);
+  const [usSearch, setUsSearch] = useState("");
+  const [usPage, setUsPage] = useState(1);
+
+  const txFiltered = useMemo(() => {
+    const q = txSearch.trim().toLowerCase();
+    const list = transfers || [];
+    if (!q) return list;
+    return list.filter((t) =>
+      `#${t.id} ${t.recipientName} ${t.recipientPhone} ${t.destinationCountry} ${t.currency} ${t.status}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [transfers, txSearch]);
+  const txRows = useMemo(
+    () => txFiltered.slice((txPage - 1) * PAGE_SIZE, txPage * PAGE_SIZE),
+    [txFiltered, txPage],
+  );
+
+  const odFiltered = useMemo(() => {
+    const q = odSearch.trim().toLowerCase();
+    const list = orders || [];
+    if (!q) return list;
+    return list.filter((o) =>
+      `#${o.id} client #${o.userId} ${o.currency} ${o.status} ${o.squarePaymentId || ""}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [orders, odSearch]);
+  const odRows = useMemo(
+    () => odFiltered.slice((odPage - 1) * PAGE_SIZE, odPage * PAGE_SIZE),
+    [odFiltered, odPage],
+  );
+
+  const usFiltered = useMemo(() => {
+    const q = usSearch.trim().toLowerCase();
+    const list = adminUsers || [];
+    if (!q) return list;
+    return list.filter((u) =>
+      `#${u.id} ${u.firstName} ${u.lastName} ${u.email} ${u.phone || ""}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [adminUsers, usSearch]);
+  const usRows = useMemo(
+    () => usFiltered.slice((usPage - 1) * PAGE_SIZE, usPage * PAGE_SIZE),
+    [usFiltered, usPage],
+  );
 
   // Statistiques calculées dynamiquement à partir des transferts et commandes
   const stats = useMemo(() => {
@@ -2202,11 +2330,24 @@ export default function AdminSidebar() {
                     {transfers?.length || 0} transfert
                     {(transfers?.length || 0) > 1 ? "s" : ""}
                   </CardTitle>
+                  <Input
+                    placeholder="Rechercher (bénéficiaire, téléphone, statut, ID…)"
+                    value={txSearch}
+                    onChange={(e) => {
+                      setTxSearch(e.target.value);
+                      setTxPage(1);
+                    }}
+                    className="mt-3 max-w-md"
+                  />
                 </CardHeader>
                 <CardContent>
                   {!transfers || transfers.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">
                       Aucun transfert pour le moment.
+                    </p>
+                  ) : txFiltered.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Aucun résultat pour « {txSearch} ».
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -2225,7 +2366,7 @@ export default function AdminSidebar() {
                           </tr>
                         </thead>
                         <tbody>
-                          {transfers.map((tr) => (
+                          {txRows.map((tr) => (
                             <tr key={tr.id} className="border-b last:border-0">
                               <td className="py-2 pr-4 text-gray-900">#{tr.id}</td>
                               <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
@@ -2291,6 +2432,11 @@ export default function AdminSidebar() {
                           ))}
                         </tbody>
                       </table>
+                      <Pagination
+                        page={txPage}
+                        total={txFiltered.length}
+                        onPage={setTxPage}
+                      />
                     </div>
                   )}
                 </CardContent>
@@ -2316,11 +2462,24 @@ export default function AdminSidebar() {
                     {orders?.length || 0} commande
                     {(orders?.length || 0) > 1 ? "s" : ""}
                   </CardTitle>
+                  <Input
+                    placeholder="Rechercher (ID, client, statut, paiement…)"
+                    value={odSearch}
+                    onChange={(e) => {
+                      setOdSearch(e.target.value);
+                      setOdPage(1);
+                    }}
+                    className="mt-3 max-w-md"
+                  />
                 </CardHeader>
                 <CardContent>
                   {!orders || orders.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">
                       Aucune commande pour le moment.
+                    </p>
+                  ) : odFiltered.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Aucun résultat pour « {odSearch} ».
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -2337,7 +2496,7 @@ export default function AdminSidebar() {
                           </tr>
                         </thead>
                         <tbody>
-                          {orders.map((od) => (
+                          {odRows.map((od) => (
                             <tr key={od.id} className="border-b last:border-0">
                               <td className="py-2 pr-4 text-gray-900">#{od.id}</td>
                               <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">
@@ -2395,6 +2554,11 @@ export default function AdminSidebar() {
                           ))}
                         </tbody>
                       </table>
+                      <Pagination
+                        page={odPage}
+                        total={odFiltered.length}
+                        onPage={setOdPage}
+                      />
                     </div>
                   )}
                 </CardContent>
@@ -2420,11 +2584,24 @@ export default function AdminSidebar() {
                     {adminUsers?.length || 0} utilisateur
                     {(adminUsers?.length || 0) > 1 ? "s" : ""}
                   </CardTitle>
+                  <Input
+                    placeholder="Rechercher (nom, email, téléphone, ID…)"
+                    value={usSearch}
+                    onChange={(e) => {
+                      setUsSearch(e.target.value);
+                      setUsPage(1);
+                    }}
+                    className="mt-3 max-w-md"
+                  />
                 </CardHeader>
                 <CardContent>
                   {!adminUsers || adminUsers.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">
                       Aucun utilisateur pour le moment.
+                    </p>
+                  ) : usFiltered.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Aucun résultat pour « {usSearch} ».
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -2443,7 +2620,7 @@ export default function AdminSidebar() {
                           </tr>
                         </thead>
                         <tbody>
-                          {adminUsers.map((u) => (
+                          {usRows.map((u) => (
                             <tr key={u.id} className="border-b last:border-0">
                               <td className="py-2 pr-4 text-gray-900">#{u.id}</td>
                               <td className="py-2 pr-4 text-gray-900">
@@ -2509,6 +2686,11 @@ export default function AdminSidebar() {
                           ))}
                         </tbody>
                       </table>
+                      <Pagination
+                        page={usPage}
+                        total={usFiltered.length}
+                        onPage={setUsPage}
+                      />
                     </div>
                   )}
                 </CardContent>
@@ -2590,6 +2772,75 @@ export default function AdminSidebar() {
                       </p>
                       <p className="text-gray-400">
                         {importResult.total} ligne(s) au total
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Importer les transferts (historique)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>
+                      Fichier CSV de la table <strong>transferts</strong> de
+                      l'ancienne plateforme. À importer{" "}
+                      <strong>après les utilisateurs</strong> (chaque transfert
+                      est relié à son compte).
+                    </p>
+                    <p>
+                      Idempotent : relancer ne crée pas de doublons. Les
+                      transferts dont le compte n'a pas été importé sont ignorés.
+                    </p>
+                  </div>
+
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => {
+                      setImportTransfersFile(e.target.files?.[0] || null);
+                      setImportTransfersResult(null);
+                    }}
+                    className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+
+                  <Button
+                    disabled={
+                      !importTransfersFile || importTransfersMutation.isPending
+                    }
+                    onClick={() =>
+                      importTransfersFile &&
+                      importTransfersMutation.mutate(importTransfersFile)
+                    }
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {importTransfersMutation.isPending
+                      ? "Import en cours… (peut prendre 1 min)"
+                      : "Importer les transferts"}
+                  </Button>
+
+                  {importTransfersResult && (
+                    <div className="mt-4 rounded-lg border border-gray-200 p-4 text-sm space-y-1">
+                      <p className="font-medium text-gray-900">
+                        Résultat de l'import
+                      </p>
+                      <p className="text-green-700">
+                        ✅ {importTransfersResult.imported} importé(s)
+                      </p>
+                      <p className="text-gray-600">
+                        ↩︎ {importTransfersResult.alreadyPresent} déjà présent(s)
+                      </p>
+                      <p className="text-gray-600">
+                        👤 {importTransfersResult.noUser} sans compte lié
+                        (ignorés)
+                      </p>
+                      <p className="text-gray-600">
+                        ⚠️ {importTransfersResult.invalid} invalide(s)
+                      </p>
+                      <p className="text-gray-400">
+                        {importTransfersResult.total} ligne(s) au total
                       </p>
                     </div>
                   )}

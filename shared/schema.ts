@@ -72,6 +72,7 @@ export const transfers = pgTable("transfers", {
   accountNumber: text("account_number"), // Numéro de compte (si applicable)
   status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
   squarePaymentId: text("square_payment_id"),
+  legacyId: integer("legacy_id"), // ID transfert ancienne plateforme (migration)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

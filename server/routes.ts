@@ -1633,6 +1633,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Import de l'historique des transferts de l'ancienne plateforme
+  app.post(
+    "/api/admin/import/transfers",
+    requireAdmin,
+    uploadCsv.single("file"),
+    async (req: any, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "Fichier CSV manquant" });
+        }
+        const records = parseCsvBuffer(req.file.buffer);
+        const legacyMap = await storage.getLegacyUserIdMap();
+
+        let noUser = 0;
+        let invalid = 0;
+        const seenLegacy = new Set<number>();
+        const rows: (typeof transfersTable.$inferInsert)[] = [];
+
+        const normDelivery = (m: string | null): string => {
+          if (!m) return "Mobile Money";
+          const low = m.toLowerCase();
+          if (low.includes("mobile")) return "Mobile Money";
+          if (low.includes("banc") || low.includes("bank")) return "Bank Account";
+          return m;
+        };
+
+        for (const r of records) {
+          const legacyRaw = csvVal(r.id);
+          const legacyId = legacyRaw ? parseInt(legacyRaw) : null;
+          if (legacyId == null || isNaN(legacyId)) {
+            invalid++;
+            continue;
+          }
+          if (seenLegacy.has(legacyId)) continue;
+          seenLegacy.add(legacyId);
+
+          const oldUserId = csvVal(r.user_id) ? parseInt(csvVal(r.user_id)!) : null;
+          const newUserId =
+            oldUserId != null ? legacyMap.get(oldUserId) : undefined;
+          if (!newUserId) {
+            noUser++; // l'utilisateur n'a pas été importé → on ne peut pas relier
+            continue;
+          }
+
+          const amount = parseFloat(csvVal(r.montant) || "0") || 0;
+          const received = parseFloat(csvVal(r.montant_send) || "0") || 0;
+          const fees = parseFloat(csvVal(r.frais) || "0") || 0;
+          let rate = amount > 0 ? received / amount : 0;
+          if (!isFinite(rate) || rate > 9999) rate = 0; // borne numeric(10,6)
+
+          const currencyRaw = (csvVal(r.devise_send) || "CAD").toUpperCase();
+          const currency = currencyRaw.startsWith("EUR") ? "EUR" : currencyRaw;
+
+          const nom = csvVal(r.nom_beneficiaire) || "";
+          const prenom = csvVal(r.prenom_beneficiaire) || "";
+          const recipientName = `${nom} ${prenom}`.trim() || "Bénéficiaire";
+
+          const createdRaw = csvVal(r.created_at);
+          let createdAt = createdRaw
+            ? new Date(createdRaw.replace(" ", "T"))
+            : new Date();
+          if (isNaN(createdAt.getTime())) createdAt = new Date();
+
+          rows.push({
+            userId: newUserId,
+            amount: amount.toFixed(2),
+            currency,
+            recipientName,
+            recipientPhone: csvVal(r.telephone_beneficiaire) || "-",
+            destinationCountry: "Burundi",
+            destinationCurrency: "BIF",
+            exchangeRate: rate.toFixed(6),
+            fees: fees.toFixed(2),
+            receivedAmount: received.toFixed(2),
+            deliveryMethod: normDelivery(csvVal(r.livraison_mode)),
+            status: "completed",
+            legacyId,
+            createdAt,
+          });
+        }
+
+        const imported = await storage.bulkInsertTransfers(rows);
+        const alreadyPresent = rows.length - imported;
+
+        console.log(
+          `📥 [IMPORT] Transferts : ${imported} importés / ${alreadyPresent} déjà présents / ${noUser} sans compte lié / ${invalid} invalides`,
+        );
+        res.json({
+          total: records.length,
+          imported,
+          alreadyPresent,
+          noUser,
+          invalid,
+        });
+      } catch (error: any) {
+        console.error("🚨 [IMPORT] Transferts:", error);
+        res.status(500).json({ message: error.message });
+      }
+    },
+  );
+
   // Renvoi manuel de la notification email d'un transfert (vue admin)
   app.post(
     "/api/admin/transfers/:id/resend-notification",
