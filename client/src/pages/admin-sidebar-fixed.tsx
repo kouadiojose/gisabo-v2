@@ -28,6 +28,17 @@ import {
 } from "lucide-react";
 import RichTextEditor from "@/components/rich-text-editor";
 import { exportToXlsx } from "@/lib/export-xlsx";
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 
@@ -1070,6 +1081,174 @@ export default function AdminSidebar() {
     });
   }, [transfers, orders]);
 
+  // Clé de date locale (évite les décalages UTC autour de minuit)
+  const localKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate(),
+    ).padStart(2, "0")}`;
+
+  // Statistiques (complétés) sur un intervalle [start, end]
+  const statsForRange = (start: Date | null, end: Date | null) => {
+    const inRange = (d: string) => {
+      const ts = new Date(d).getTime();
+      if (start && ts < start.getTime()) return false;
+      if (end && ts > end.getTime()) return false;
+      return true;
+    };
+    const ctr = (transfers || []).filter(
+      (t) => t.status === "completed" && inRange(t.createdAt),
+    );
+    const sentCAD = ctr
+      .filter((t) => t.currency === "CAD")
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const receivedBIF = ctr
+      .filter((t) => t.destinationCurrency === "BIF")
+      .reduce((s, t) => s + Number(t.receivedAmount || 0), 0);
+    const cod = (orders || []).filter(
+      (o) =>
+        o.status !== "pending" &&
+        o.status !== "cancelled" &&
+        inRange(o.createdAt),
+    );
+    const ordersCAD = cod
+      .filter((o) => o.currency === "CAD")
+      .reduce((s, o) => s + Number(o.total || 0), 0);
+    return {
+      transferCount: ctr.length,
+      sentCAD,
+      receivedBIF,
+      orderCount: cod.length,
+      ordersCAD,
+    };
+  };
+
+  // Série quotidienne sur 30 jours (graphique d'évolution)
+  const dailySeries = useMemo(() => {
+    const now = new Date();
+    const start = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 29,
+    );
+    const buckets = new Map<string, { sentCAD: number; count: number }>();
+    const order: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate() + i,
+      );
+      const key = localKey(d);
+      buckets.set(key, { sentCAD: 0, count: 0 });
+      order.push(key);
+    }
+    for (const t of transfers || []) {
+      if (t.status !== "completed") continue;
+      const key = localKey(new Date(t.createdAt));
+      const b = buckets.get(key);
+      if (b) {
+        b.count += 1;
+        if (t.currency === "CAD") b.sentCAD += Number(t.amount || 0);
+      }
+    }
+    return order.map((key) => {
+      const b = buckets.get(key)!;
+      const d = new Date(key + "T00:00:00");
+      return {
+        date: key,
+        label: d.toLocaleDateString("fr-FR", {
+          day: "2-digit",
+          month: "2-digit",
+        }),
+        sentCAD: Math.round(b.sentCAD),
+        transferCount: b.count,
+      };
+    });
+  }, [transfers]);
+
+  // Comparaison ce mois vs mois précédent
+  const monthComparison = useMemo(() => {
+    const now = new Date();
+    const startThis = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const cur = statsForRange(startThis, null);
+    const prev = statsForRange(startPrev, new Date(startThis.getTime() - 1));
+    return { cur, prev };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transfers, orders]);
+
+  const pctChange = (cur: number, prev: number) =>
+    prev === 0 ? (cur > 0 ? 100 : 0) : ((cur - prev) / prev) * 100;
+
+  // Période personnalisée
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
+  const rangeStats = useMemo(() => {
+    const start = rangeFrom ? new Date(rangeFrom + "T00:00:00") : null;
+    const end = rangeTo ? new Date(rangeTo + "T23:59:59") : null;
+    return statsForRange(start, end);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeFrom, rangeTo, transfers, orders]);
+
+  const exportRange = () => {
+    const start = rangeFrom ? new Date(rangeFrom + "T00:00:00") : null;
+    const end = rangeTo ? new Date(rangeTo + "T23:59:59") : null;
+    const inRange = (d: string) => {
+      const ts = new Date(d).getTime();
+      if (start && ts < start.getTime()) return false;
+      if (end && ts > end.getTime()) return false;
+      return true;
+    };
+    const rows = (transfers || [])
+      .filter((t) => inRange(t.createdAt))
+      .map((t) => ({
+        id: t.id,
+        date: t.createdAt ? new Date(t.createdAt).toLocaleDateString("fr-FR") : "",
+        recipient: t.recipientName,
+        dest: t.destinationCountry,
+        amount: Number(t.amount),
+        currency: t.currency,
+        received: Number(t.receivedAmount),
+        method: t.deliveryMethod,
+        status: t.status,
+      }));
+    exportToXlsx(
+      `transferts_${rangeFrom || "debut"}_${rangeTo || "fin"}.xlsx`,
+      [
+        {
+          name: "Transferts",
+          columns: [
+            { header: "ID", key: "id", width: 8 },
+            { header: "Date", key: "date", width: 12 },
+            { header: "Bénéficiaire", key: "recipient", width: 26 },
+            { header: "Destination", key: "dest", width: 14 },
+            { header: "Montant", key: "amount", width: 12 },
+            { header: "Devise", key: "currency", width: 10 },
+            { header: "Reçu", key: "received", width: 14 },
+            { header: "Méthode", key: "method", width: 18 },
+            { header: "Statut", key: "status", width: 12 },
+          ],
+          rows,
+        },
+        {
+          name: "Résumé",
+          columns: [
+            { header: "Indicateur", key: "k", width: 32 },
+            { header: "Valeur", key: "v", width: 20 },
+          ],
+          rows: [
+            { k: "Période", v: `${rangeFrom || "début"} → ${rangeTo || "fin"}` },
+            { k: "Transferts complétés", v: rangeStats.transferCount },
+            { k: "Envoyé (CAD)", v: rangeStats.sentCAD },
+            { k: "Reçu (BIF)", v: rangeStats.receivedBIF },
+            { k: "Commandes", v: rangeStats.orderCount },
+            { k: "Encaissé (CAD)", v: rangeStats.ordersCAD },
+          ],
+        },
+      ],
+    );
+  };
+
   // Upload image function
   const uploadImage = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -1819,6 +1998,214 @@ export default function AdminSidebar() {
                     Montants calculés sur les transferts et commandes complétés.
                     « Cette semaine » démarre le lundi, « Ce mois » le 1er du
                     mois.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Évolution sur 30 jours */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    Évolution (30 derniers jours)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ width: "100%", height: 300 }}>
+                    <ResponsiveContainer>
+                      <ComposedChart
+                        data={dailySeries}
+                        margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 11 }}
+                          interval={4}
+                        />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fontSize: 11 }}
+                          width={70}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fontSize: 11 }}
+                          width={40}
+                        />
+                        <Tooltip
+                          formatter={(value: any, name: any) =>
+                            name === "Envoyé (CAD)"
+                              ? [`${Number(value).toLocaleString("fr-CA")} CAD`, name]
+                              : [value, name]
+                          }
+                        />
+                        <Legend />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="sentCAD"
+                          name="Envoyé (CAD)"
+                          fill="#1B5E9B"
+                          radius={[3, 3, 0, 0]}
+                        />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="transferCount"
+                          name="Nb transferts"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Comparaison ce mois vs mois précédent */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ce mois vs mois précédent</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      {
+                        label: "Transferts",
+                        cur: monthComparison.cur.transferCount,
+                        prev: monthComparison.prev.transferCount,
+                        fmt: (v: number) => v.toLocaleString("fr-CA"),
+                      },
+                      {
+                        label: "Envoyé (CAD)",
+                        cur: monthComparison.cur.sentCAD,
+                        prev: monthComparison.prev.sentCAD,
+                        fmt: (v: number) => formatMoney(v, "CAD"),
+                      },
+                      {
+                        label: "Reçu (BIF)",
+                        cur: monthComparison.cur.receivedBIF,
+                        prev: monthComparison.prev.receivedBIF,
+                        fmt: (v: number) => formatMoney(v, "BIF", 0),
+                      },
+                      {
+                        label: "Encaissé (CAD)",
+                        cur: monthComparison.cur.ordersCAD,
+                        prev: monthComparison.prev.ordersCAD,
+                        fmt: (v: number) => formatMoney(v, "CAD"),
+                      },
+                    ].map((m) => {
+                      const change = pctChange(m.cur, m.prev);
+                      const up = change >= 0;
+                      return (
+                        <div
+                          key={m.label}
+                          className="rounded-lg border border-gray-200 p-4"
+                        >
+                          <p className="text-xs font-medium text-gray-500">
+                            {m.label}
+                          </p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {m.fmt(m.cur)}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            précédent : {m.fmt(m.prev)}
+                          </p>
+                          <p
+                            className={`text-xs font-semibold mt-1 ${
+                              up ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {up ? "▲" : "▼"} {Math.abs(change).toFixed(1)}%
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Période personnalisée + export */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Période personnalisée</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                    <div>
+                      <Label htmlFor="rangeFrom">Du</Label>
+                      <Input
+                        id="rangeFrom"
+                        type="date"
+                        value={rangeFrom}
+                        onChange={(e) => setRangeFrom(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="rangeTo">Au</Label>
+                      <Input
+                        id="rangeTo"
+                        type="date"
+                        value={rangeTo}
+                        onChange={(e) => setRangeTo(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button variant="outline" onClick={exportRange}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Exporter (Excel)
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        Transferts
+                      </p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {rangeStats.transferCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        Envoyé (CAD)
+                      </p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {formatMoney(rangeStats.sentCAD, "CAD")}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        Reçu (BIF)
+                      </p>
+                      <p className="text-xl font-bold text-emerald-700">
+                        {formatMoney(rangeStats.receivedBIF, "BIF", 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        Commandes
+                      </p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {rangeStats.orderCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-xs font-medium text-gray-500">
+                        Encaissé (CAD)
+                      </p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {formatMoney(rangeStats.ordersCAD, "CAD")}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Laissez une date vide pour ne pas borner ce côté. L'export
+                    Excel contient les transferts de la période + un onglet
+                    résumé.
                   </p>
                 </CardContent>
               </Card>
