@@ -1013,6 +1013,63 @@ export default function AdminSidebar() {
       maximumFractionDigits: digits,
     })} ${currency}`;
 
+  // Statistiques détaillées par période (aujourd'hui / semaine / mois / global)
+  const periodStats = useMemo(() => {
+    const tr = transfers || [];
+    const od = orders || [];
+    const now = new Date();
+    const startToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const dow = (now.getDay() + 6) % 7; // 0 = lundi
+    const startWeek = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - dow,
+    );
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const periods: { label: string; start: Date | null }[] = [
+      { label: "Aujourd'hui", start: startToday },
+      { label: "Cette semaine", start: startWeek },
+      { label: "Ce mois", start: startMonth },
+      { label: "Global", start: null },
+    ];
+
+    return periods.map((p) => {
+      const inRange = (d: string) =>
+        !p.start || new Date(d) >= (p.start as Date);
+      const ctr = tr.filter(
+        (t) => t.status === "completed" && inRange(t.createdAt),
+      );
+      const sentCAD = ctr
+        .filter((t) => t.currency === "CAD")
+        .reduce((s, t) => s + Number(t.amount || 0), 0);
+      const receivedBIF = ctr
+        .filter((t) => t.destinationCurrency === "BIF")
+        .reduce((s, t) => s + Number(t.receivedAmount || 0), 0);
+      const cod = od.filter(
+        (o) =>
+          o.status !== "pending" &&
+          o.status !== "cancelled" &&
+          inRange(o.createdAt),
+      );
+      const ordersCAD = cod
+        .filter((o) => o.currency === "CAD")
+        .reduce((s, o) => s + Number(o.total || 0), 0);
+      return {
+        label: p.label,
+        transferCount: ctr.length,
+        sentCAD,
+        receivedBIF,
+        orderCount: cod.length,
+        ordersCAD,
+      };
+    });
+  }, [transfers, orders]);
+
   // Upload image function
   const uploadImage = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -1699,6 +1756,72 @@ export default function AdminSidebar() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Statistiques détaillées par période */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    Statistiques par période
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-gray-500">
+                          <th className="py-2 pr-4 font-medium">Période</th>
+                          <th className="py-2 pr-4 font-medium">Transferts</th>
+                          <th className="py-2 pr-4 font-medium">
+                            Envoyé (CAD)
+                          </th>
+                          <th className="py-2 pr-4 font-medium">Reçu (BIF)</th>
+                          <th className="py-2 pr-4 font-medium">Commandes</th>
+                          <th className="py-2 pr-4 font-medium">
+                            Encaissé (CAD)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {periodStats.map((p) => (
+                          <tr
+                            key={p.label}
+                            className={`border-b last:border-0 ${
+                              p.label === "Global"
+                                ? "font-semibold bg-gray-50"
+                                : ""
+                            }`}
+                          >
+                            <td className="py-2 pr-4 text-gray-900">
+                              {p.label}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700">
+                              {p.transferCount}
+                            </td>
+                            <td className="py-2 pr-4 whitespace-nowrap text-gray-900">
+                              {formatMoney(p.sentCAD, "CAD")}
+                            </td>
+                            <td className="py-2 pr-4 whitespace-nowrap text-emerald-700">
+                              {formatMoney(p.receivedBIF, "BIF", 0)}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700">
+                              {p.orderCount}
+                            </td>
+                            <td className="py-2 pr-4 whitespace-nowrap text-gray-900">
+                              {formatMoney(p.ordersCAD, "CAD")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    Montants calculés sur les transferts et commandes complétés.
+                    « Cette semaine » démarre le lundi, « Ce mois » le 1er du
+                    mois.
+                  </p>
+                </CardContent>
+              </Card>
 
               {/* Fréquentation / Visiteurs */}
               <Card>
