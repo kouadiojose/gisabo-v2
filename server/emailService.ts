@@ -10,6 +10,7 @@ const FROM_EMAIL = process.env.MAIL_FROM || "noreply@gisabogroup.ca";
 type EmailInput = {
     from: string;
     to: string | string[];
+    bcc?: string | string[];
     subject: string;
     text?: string;
     html?: string;
@@ -30,6 +31,11 @@ if (process.env.RESEND_API_KEY) {
         const { error } = await resend.emails.send({
             from: input.from,
             to: Array.isArray(input.to) ? input.to : [input.to],
+            bcc: input.bcc
+                ? Array.isArray(input.bcc)
+                    ? input.bcc
+                    : [input.bcc]
+                : undefined,
             subject: input.subject,
             html: input.html || undefined,
             text: input.text || "",
@@ -269,20 +275,9 @@ export async function sendTransferConfirmationEmail(
                     ${
                         amountBIF !== null
                             ? `Montant reçu: ${amountBIF.toLocaleString()} BIF`
-                            : `Montant envoyé: ${amountCAD.toFixed(2)} CAD (Taux de change non configuré)`
+                            : `Montant reçu: à confirmer`
                     }
                 </div>
-                ${
-                    exchangeRate !== null
-                        ? `<div class="info-row">
-                        <span class="label">Taux de change:</span>
-                        <span>1 CAD = ${exchangeRate.toLocaleString()} BIF</span>
-                    </div>`
-                        : `<div class="info-row">
-                        <span class="label">Taux de change:</span>
-                        <span style="color: #e74c3c;">Non configuré - Veuillez contacter l'administration</span>
-                    </div>`
-                }
                 <div class="info-row">
                     <span class="label">Mode livraison:</span>
                     <span>${formatDeliveryMethod(transfer.deliveryMethod)}</span>
@@ -312,40 +307,10 @@ export async function sendTransferConfirmationEmail(
                     <span>${paymentId}</span>
                 </div>
                 <div class="info-row">
-                    <span class="label">Méthode de paiement:</span>
-                    <span>${paymentMethod === 'afterpay' ? '💳 Afterpay (4 paiements)' : '💳 Carte bancaire'}</span>
-                </div>
-                <div class="info-row">
                     <span class="label">Relevé sur carte bancaire:</span>
                     <span>SQ*Gisabo Services</span>
                 </div>
             </div>
-
-            ${paymentMethod === 'afterpay' ? `
-            <div class="section" style="border-left-color: #9b59b6;">
-                <h3>🔄 Informations Afterpay</h3>
-                <p style="color: #9b59b6; font-weight: bold;">Votre paiement sera divisé en 4 échéances égales :</p>
-                <div class="info-row">
-                    <span class="label">1er paiement (aujourd'hui):</span>
-                    <span><strong>${(amountCAD / 4).toFixed(2)} CAD</strong></span>
-                </div>
-                <div class="info-row">
-                    <span class="label">2ème paiement (dans 2 semaines):</span>
-                    <span><strong>${(amountCAD / 4).toFixed(2)} CAD</strong></span>
-                </div>
-                <div class="info-row">
-                    <span class="label">3ème paiement (dans 4 semaines):</span>
-                    <span><strong>${(amountCAD / 4).toFixed(2)} CAD</strong></span>
-                </div>
-                <div class="info-row">
-                    <span class="label">4ème paiement (dans 6 semaines):</span>
-                    <span><strong>${(amountCAD / 4).toFixed(2)} CAD</strong></span>
-                </div>
-                <p style="font-size: 14px; color: #666; margin-top: 15px;">
-                    ℹ️ Aucun intérêt ni frais cachés. Les prélèvements automatiques se feront selon le calendrier Afterpay.
-                </p>
-            </div>
-            ` : ''}
         </div>
         
         <div class="footer">
@@ -357,16 +322,11 @@ export async function sendTransferConfirmationEmail(
 </html>
     `;
 
-        // Préparer les informations de montant et taux
+        // Montant reçu (BIF) — sans taux de change ni montant CAD sur le reçu
         const amountInfo =
             amountBIF !== null
                 ? `Montant reçu: ${amountBIF.toLocaleString()} BIF`
-                : `Montant envoyé: ${amountCAD.toFixed(2)} CAD (Taux de change non configuré)`;
-
-        const rateInfo =
-            exchangeRate !== null
-                ? `Taux de change: 1 CAD = ${exchangeRate.toLocaleString()} BIF`
-                : `Taux de change: Non configuré - Veuillez contacter l'administration`;
+                : `Montant reçu: à confirmer`;
 
         const emailText = `
 Cher(e) ${user.firstName} ${user.lastName},
@@ -389,7 +349,6 @@ Téléphone: ${transfer.recipientPhone}
 INFORMATIONS DE TRANSACTION
 Numéro REF: ${refNumber}
 ${amountInfo}
-${rateInfo}
 Mode livraison: ${formatDeliveryMethod(transfer.deliveryMethod)}
 ${transfer.bankName ? `Nom de la banque: ${transfer.bankName}` : ""}
 ${transfer.accountNumber ? `Numéro de compte: ${transfer.accountNumber}` : ""}
@@ -409,10 +368,13 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
             html: emailHTML,
         });
 
-        // Envoi d'une copie à l'équipe interne (liste selon le mode de livraison)
+        // Copie à l'équipe interne, en BCC : les destinataires internes ne se
+        // voient pas entre eux, et surtout le client (expéditeur) n'a jamais
+        // d'autres adresses en copie sur son reçu (email séparé ci-dessus).
         await sendEmail({
             from: `TRANSFERT GISABO <${FROM_EMAIL}>`,
-            to: getTransferNotificationEmails(transfer.deliveryMethod),
+            to: FROM_EMAIL,
+            bcc: getTransferNotificationEmails(transfer.deliveryMethod),
             subject: `Nouveau transfert - ${refNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVEAU TRANSFERT EFFECTUÉ\n\n${emailText}`,
             html: emailHTML,
@@ -619,10 +581,11 @@ Contact: gisabonet@gmail.com | +1 (613) 762-6686
             html: emailHTML,
         });
 
-        // Envoi d'une copie à l'équipe interne
+        // Copie à l'équipe interne en BCC (destinataires internes masqués)
         await sendEmail({
             from: `ACHAT GISABO <${FROM_EMAIL}>`,
-            to: ORDER_NOTIFICATION_EMAILS,
+            to: FROM_EMAIL,
+            bcc: ORDER_NOTIFICATION_EMAILS,
             subject: `Nouvelle commande - ${orderNumber} - ${user.firstName} ${user.lastName}`,
             text: `NOUVELLE COMMANDE EFFECTUÉE\n\n${emailText}`,
             html: emailHTML,

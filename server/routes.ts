@@ -341,6 +341,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: sanitizeUser(req.user) });
   });
 
+  // Mot de passe oublié : envoi d'un lien de réinitialisation par email
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const email = String(req.body?.email || "").trim().toLowerCase();
+      // Réponse identique que le compte existe ou non (anti-énumération)
+      const genericOk = () =>
+        res.json({
+          success: true,
+          message:
+            "Si un compte existe pour cette adresse, un email de réinitialisation a été envoyé.",
+        });
+      if (!email) return genericOk();
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) return genericOk();
+
+      const token = jwt.sign({ userId: user.id, pwreset: true }, JWT_SECRET, {
+        expiresIn: "1h",
+      });
+      const appUrl = process.env.APP_URL || "https://gisabo-v2.up.railway.app";
+      const resetUrl = `${appUrl}/reset-password?token=${token}`;
+      const html = buildCampaignHtml(
+        `<p>Bonjour ${user.firstName || ""},</p>
+         <p>Vous avez demandé la réinitialisation de votre mot de passe GISABO.</p>
+         <p>Cliquez sur le bouton ci-dessous (valable 1 heure) :</p>
+         <p style="text-align:center;margin:24px 0;">
+           <a href="${resetUrl}" style="background:#1B5E9B;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Réinitialiser mon mot de passe</a>
+         </p>
+         <p style="font-size:13px;color:#666;">Si le bouton ne fonctionne pas, copiez ce lien :<br>${resetUrl}</p>
+         <p style="font-size:13px;color:#666;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>`,
+      );
+      try {
+        await sendCampaignEmail({
+          to: user.email,
+          subject: "Réinitialisation de votre mot de passe GISABO",
+          html,
+          text: `Réinitialisez votre mot de passe (valable 1 heure) : ${resetUrl}`,
+        });
+      } catch (e) {
+        console.error("🚨 [MDP OUBLIÉ] Envoi email:", e);
+      }
+      return genericOk();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Réinitialisation effective du mot de passe via le token reçu par email
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token et mot de passe requis" });
+      }
+      if (String(newPassword).length < 6) {
+        return res
+          .status(400)
+          .json({ message: "Le mot de passe doit faire au moins 6 caractères" });
+      }
+      let decoded: any;
+      try {
+        decoded = jwt.verify(token, JWT_SECRET);
+      } catch {
+        return res
+          .status(400)
+          .json({ message: "Lien invalide ou expiré. Refaites la demande." });
+      }
+      if (!decoded.pwreset || !decoded.userId) {
+        return res.status(400).json({ message: "Lien invalide" });
+      }
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(decoded.userId, { password: hashed });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // === 2FA (TOTP - application d'authentification) ===
 
   // Démarre la configuration : génère un secret + QR code (pas encore activé)

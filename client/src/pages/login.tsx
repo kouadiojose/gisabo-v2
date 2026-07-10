@@ -19,6 +19,28 @@ export default function Login() {
   });
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      // On considère toujours l'opération réussie (anti-énumération)
+      await response.json().catch(() => ({}));
+      setForgotSent(true);
+    } catch {
+      setForgotSent(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const finishLogin = (data: any) => {
     setAuthToken(data.token);
@@ -126,17 +148,83 @@ export default function Login() {
                 <i className="fas fa-globe-africa text-white text-2xl"></i>
               </div>
               <CardTitle className="text-2xl font-bold font-poppins">
-                {pendingToken ? "Vérification en deux étapes" : "Connexion"}
+                {forgotMode
+                  ? "Mot de passe oublié"
+                  : pendingToken
+                    ? "Vérification en deux étapes"
+                    : "Connexion"}
               </CardTitle>
               <p className="text-gray-600">
-                {pendingToken
-                  ? "Entrez le code à 6 chiffres de votre application d'authentification"
-                  : "Connectez-vous à votre compte GISABO"}
+                {forgotMode
+                  ? "Recevez un lien de réinitialisation par email"
+                  : pendingToken
+                    ? "Entrez le code à 6 chiffres de votre application d'authentification"
+                    : "Connectez-vous à votre compte GISABO"}
               </p>
             </CardHeader>
 
             <CardContent>
-              {pendingToken ? (
+              {forgotMode ? (
+                forgotSent ? (
+                  <div className="text-center space-y-4">
+                    <i className="fas fa-paper-plane text-primary text-3xl"></i>
+                    <p className="text-gray-700">
+                      Si un compte existe pour{" "}
+                      <strong>{forgotEmail}</strong>, un email de
+                      réinitialisation vient d'être envoyé. Vérifiez votre boîte
+                      de réception (et les spams).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotMode(false);
+                        setForgotSent(false);
+                        setForgotEmail("");
+                      }}
+                      className="text-sm text-primary hover:text-primary-600"
+                    >
+                      ← Retour à la connexion
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgot} className="space-y-6">
+                    <div>
+                      <Label htmlFor="forgotEmail">Adresse email</Label>
+                      <Input
+                        id="forgotEmail"
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        required
+                        autoFocus
+                        className="mt-1"
+                        placeholder="votre@email.com"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isLoading || !forgotEmail}
+                      className="w-full bg-primary hover:bg-primary-600 text-white"
+                    >
+                      {isLoading ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                          Envoi…
+                        </>
+                      ) : (
+                        "Envoyer le lien de réinitialisation"
+                      )}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(false)}
+                      className="w-full text-sm text-gray-600 hover:text-primary"
+                    >
+                      ← Retour à la connexion
+                    </button>
+                  </form>
+                )
+              ) : pendingToken ? (
                 <form onSubmit={handleVerify2FA} className="space-y-6">
                   <div>
                     <Label htmlFor="twoFactorCode">Code d'authentification</Label>
@@ -209,6 +297,15 @@ export default function Login() {
                     className="mt-1"
                     placeholder="••••••••"
                   />
+                  <div className="text-right mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(true)}
+                      className="text-sm text-primary hover:text-primary-600"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </div>
                 </div>
 
                 <Button
