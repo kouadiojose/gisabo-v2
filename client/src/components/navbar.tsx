@@ -44,46 +44,48 @@ export default function Navbar() {
     window.location.reload();
   };
 
+  const navItems = [
+    { href: "/", label: t("nav.home") },
+    { href: "/marketplace", label: t("nav.marketplace") },
+    { href: "/gisabo", label: "Gisabo" },
+    { href: "/services", label: t("nav.services") },
+    { href: "/fonctionnement", label: t("nav.howItWorks") },
+    { href: "/contact", label: t("nav.contact") },
+  ];
+
+  const isActive = (href: string) =>
+    href === "/"
+      ? location === "/"
+      : location === href || location.startsWith(href + "/");
+
   const NavLinks = ({ mobile = false }) => (
     <div
       className={`${mobile ? "flex flex-col space-y-4" : "hidden md:flex items-center space-x-8"}`}
     >
-      <Link
-        href="/"
-        className="text-gray-700 hover:text-primary font-medium transition-colors"
-      >
-        {t("nav.home")}
-      </Link>
-      <Link
-        href="/marketplace"
-        className="text-gray-700 hover:text-primary font-medium transition-colors"
-      >
-        {t("nav.marketplace")}
-      </Link>
-      <Link
-        href="/gisabo"
-        className="text-gray-700 hover:text-primary font-medium transition-colors"
-      >
-        Gisabo
-      </Link>
-      <Link
-        href="/services"
-        className="text-gray-700 hover:text-primary font-medium transition-colors"
-      >
-        {t("nav.services")}
-      </Link>
-      <Link
-        href="/fonctionnement"
-        className="text-gray-700 hover:text-primary font-medium transition-colors"
-      >
-        {t("nav.howItWorks")}
-      </Link>
-      <Link
-        href="/contact"
-        className="text-gray-700 hover:text-primary font-medium transition-colors"
-      >
-        {t("nav.contact")}
-      </Link>
+      {navItems.map((item) => {
+        const active = isActive(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => mobile && setIsOpen(false)}
+            aria-current={active ? "page" : undefined}
+            className={
+              mobile
+                ? `font-medium transition-colors ${
+                    active ? "text-primary" : "text-gray-700 hover:text-primary"
+                  }`
+                : `font-medium transition-colors border-b-2 pb-1 ${
+                    active
+                      ? "text-primary border-primary"
+                      : "text-gray-700 border-transparent hover:text-primary"
+                  }`
+            }
+          >
+            {item.label}
+          </Link>
+        );
+      })}
     </div>
   );
 
