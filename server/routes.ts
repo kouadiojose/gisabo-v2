@@ -1,7 +1,8 @@
 import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertTransferSchema, insertOrderSchema, insertOrderItemSchema, insertExchangeRateSchema, insertServiceSchema, insertProductSchema, insertAdminSchema, users as usersTable, transfers as transfersTable } from "@shared/schema";
+import { insertUserSchema, insertTransferSchema, insertOrderSchema, insertOrderItemSchema, insertExchangeRateSchema, insertServiceSchema, insertProductSchema, insertAdminSchema, users as usersTable, transfers as transfersTable, admins as adminsTable, categories as categoriesTable, products as productsTable, services as servicesTable, orders as ordersTable, orderItems as orderItemsTable, exchangeRates as exchangeRatesTable, visits as visitsTable, paymentMethods as paymentMethodsTable, emailCampaigns as emailCampaignsTable, afterpayReminders as afterpayRemindersTable } from "@shared/schema";
+import { db } from "./db";
 import { applyAfterpayFee } from "@shared/payment-fees";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -2096,32 +2097,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Téléchargement d'une sauvegarde complète de la base (JSON)
+  // Téléchargement d'une sauvegarde complète de la base (JSON, streamé
+  // table par table pour limiter la mémoire).
   app.get("/api/admin/backup", requireAdmin, async (req: any, res) => {
+    const backupTables: [string, any][] = [
+      ["users", usersTable],
+      ["admins", adminsTable],
+      ["categories", categoriesTable],
+      ["products", productsTable],
+      ["services", servicesTable],
+      ["transfers", transfersTable],
+      ["orders", ordersTable],
+      ["order_items", orderItemsTable],
+      ["exchange_rates", exchangeRatesTable],
+      ["visits", visitsTable],
+      ["payment_methods", paymentMethodsTable],
+      ["email_campaigns", emailCampaignsTable],
+      ["afterpay_reminders", afterpayRemindersTable],
+    ];
     try {
-      const data = await storage.getDatabaseBackup();
-      const counts: Record<string, number> = {};
-      for (const [k, v] of Object.entries(data)) {
-        counts[k] = Array.isArray(v) ? v.length : 0;
-      }
-      const payload = {
-        app: "gisabo",
-        version: 1,
-        generatedAt: new Date().toISOString(),
-        counts,
-        tables: data,
-      };
       const stamp = new Date().toISOString().slice(0, 10);
       res.setHeader("Content-Type", "application/json; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
         `attachment; filename="gisabo-backup-${stamp}.json"`,
       );
+      res.write(
+        `{"app":"gisabo","version":1,"generatedAt":${JSON.stringify(
+          new Date().toISOString(),
+        )},"tables":{`,
+      );
+      for (let i = 0; i < backupTables.length; i++) {
+        const [name, tbl] = backupTables[i];
+        const rows = await db.select().from(tbl);
+        res.write(`${JSON.stringify(name)}:${JSON.stringify(rows)}`);
+        if (i < backupTables.length - 1) res.write(",");
+      }
+      res.end("}}");
       console.log(`💾 [BACKUP] Sauvegarde générée par admin ${req.admin.id}`);
-      res.send(JSON.stringify(payload));
     } catch (error: any) {
       console.error("🚨 [BACKUP] Erreur:", error);
-      res.status(500).json({ message: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message });
+      } else {
+        res.end();
+      }
     }
   });
 

@@ -540,7 +540,16 @@ export default function AdminSidebar() {
     setBackupLoading(true);
     try {
       const response = await makeAuthenticatedRequest("/api/admin/backup");
-      if (!response.ok) throw new Error("Échec de la sauvegarde");
+      if (!response.ok) {
+        let msg = `Erreur ${response.status}`;
+        try {
+          const err = await response.json();
+          if (err?.message) msg = err.message;
+        } catch {
+          /* corps non-JSON */
+        }
+        throw new Error(msg);
+      }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
