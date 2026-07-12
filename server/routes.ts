@@ -960,11 +960,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log(`✅ [PAIEMENT RÉUSSI] ID Square: ${payment.id}`);
           
-          // 🔒 MISE À JOUR SÉCURISÉE DU STATUT DU TRANSFERT
+          // 🔒 MISE À JOUR SÉCURISÉE DU STATUT DU TRANSFERT (+ méthode de paiement)
+          const paidMethod =
+            payment.source_type === "BUY_NOW_PAY_LATER" ? "afterpay" : "card";
           const updatedTransfer = await storage.updateTransferStatus(
             transferId,
             "completed",
-            payment.id
+            payment.id,
+            paidMethod
           );
 
           // 🔒 RÉPONSE DE SUCCÈS IMMÉDIATE (ne pas attendre l'email : le client

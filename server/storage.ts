@@ -1,4 +1,4 @@
-import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, paymentMethods, emailCampaigns, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit, type PaymentMethod, type InsertPaymentMethod, type EmailCampaign } from "@shared/schema";
+import { users, categories, products, transfers, orders, orderItems, exchangeRates, services, admins, visits, paymentMethods, emailCampaigns, afterpayReminders, type User, type InsertUser, type Category, type InsertCategory, type Product, type InsertProduct, type Transfer, type InsertTransfer, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type ExchangeRate, type InsertExchangeRate, type Service, type InsertService, type Admin, type InsertAdmin, type InsertVisit, type PaymentMethod, type InsertPaymentMethod, type EmailCampaign } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
@@ -50,7 +50,10 @@ export interface IStorage {
   getAllTransfers(): Promise<Transfer[]>;
   getTransfer(id: number): Promise<Transfer | undefined>;
   createTransfer(transfer: InsertTransfer): Promise<Transfer>;
-  updateTransferStatus(id: number, status: string, squarePaymentId?: string): Promise<Transfer | undefined>;
+  updateTransferStatus(id: number, status: string, squarePaymentId?: string, paymentMethod?: string): Promise<Transfer | undefined>;
+  getAfterpayTransfers(): Promise<Transfer[]>;
+  hasAfterpayReminder(transferId: number, installment: number): Promise<boolean>;
+  recordAfterpayReminder(transferId: number, installment: number): Promise<void>;
 
   // Orders
   getOrdersByUser(userId: number): Promise<Order[]>;
@@ -204,6 +207,44 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(transfers).orderBy(desc(transfers.createdAt));
   }
 
+  async getAfterpayTransfers(): Promise<Transfer[]> {
+    return await db
+      .select()
+      .from(transfers)
+      .where(
+        and(
+          eq(transfers.paymentMethod, "afterpay"),
+          eq(transfers.status, "completed"),
+        ),
+      );
+  }
+
+  async hasAfterpayReminder(
+    transferId: number,
+    installment: number,
+  ): Promise<boolean> {
+    const [row] = await db
+      .select({ id: afterpayReminders.id })
+      .from(afterpayReminders)
+      .where(
+        and(
+          eq(afterpayReminders.transferId, transferId),
+          eq(afterpayReminders.installment, installment),
+        ),
+      );
+    return !!row;
+  }
+
+  async recordAfterpayReminder(
+    transferId: number,
+    installment: number,
+  ): Promise<void> {
+    await db
+      .insert(afterpayReminders)
+      .values({ transferId, installment })
+      .onConflictDoNothing();
+  }
+
   async getTransfer(id: number): Promise<Transfer | undefined> {
     const [transfer] = await db.select().from(transfers).where(eq(transfers.id, id));
     return transfer || undefined;
@@ -217,12 +258,15 @@ export class DatabaseStorage implements IStorage {
     return transfer;
   }
 
-  async updateTransferStatus(id: number, status: string, squarePaymentId?: string): Promise<Transfer | undefined> {
+  async updateTransferStatus(id: number, status: string, squarePaymentId?: string, paymentMethod?: string): Promise<Transfer | undefined> {
     const updateData: any = { status };
     if (squarePaymentId) {
       updateData.squarePaymentId = squarePaymentId;
     }
-    
+    if (paymentMethod) {
+      updateData.paymentMethod = paymentMethod;
+    }
+
     const [transfer] = await db
       .update(transfers)
       .set(updateData)

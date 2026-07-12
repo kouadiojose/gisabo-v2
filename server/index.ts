@@ -72,4 +72,17 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Rappels d'échéances Afterpay : premier passage ~1 min après le démarrage,
+  // puis toutes les 12 h. Idempotent (aucun doublon de rappel).
+  const { processAfterpayReminders } = await import("./afterpayReminders");
+  setTimeout(() => {
+    processAfterpayReminders();
+  }, 60 * 1000);
+  setInterval(
+    () => {
+      processAfterpayReminders();
+    },
+    12 * 60 * 60 * 1000,
+  );
 })();

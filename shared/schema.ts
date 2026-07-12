@@ -86,8 +86,17 @@ export const transfers = pgTable("transfers", {
   accountNumber: text("account_number"), // Numéro de compte (si applicable)
   status: text("status").notNull().default("pending"), // 'pending', 'processing', 'completed', 'failed'
   squarePaymentId: text("square_payment_id"),
+  paymentMethod: text("payment_method"), // 'card' | 'afterpay'
   legacyId: integer("legacy_id"), // ID transfert ancienne plateforme (migration)
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Rappels d'échéances Afterpay envoyés (idempotence : 1 rappel par échéance)
+export const afterpayReminders = pgTable("afterpay_reminders", {
+  id: serial("id").primaryKey(),
+  transferId: integer("transfer_id").notNull(),
+  installment: integer("installment").notNull(), // 2, 3 ou 4
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
 });
 
 export const orders = pgTable("orders", {
