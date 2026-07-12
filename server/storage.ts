@@ -53,6 +53,7 @@ export interface IStorage {
   updateTransferStatus(id: number, status: string, squarePaymentId?: string, paymentMethod?: string): Promise<Transfer | undefined>;
   getAfterpayTransfers(): Promise<Transfer[]>;
   getDatabaseBackup(): Promise<Record<string, any>>;
+  restoreFromBackup(tables: Record<string, any[]>): Promise<Record<string, number>>;
   hasAfterpayReminder(transferId: number, installment: number): Promise<boolean>;
   recordAfterpayReminder(transferId: number, installment: number): Promise<void>;
 
@@ -206,6 +207,64 @@ export class DatabaseStorage implements IStorage {
 
   async getAllTransfers(): Promise<Transfer[]> {
     return await db.select().from(transfers).orderBy(desc(transfers.createdAt));
+  }
+
+  // Restauration depuis un backup JSON. Remplace intégralement les données
+  // (transaction : tout ou rien). Ordre parents → enfants pour respecter les
+  // clés étrangères ; séquences d'auto-incrément réalignées après insertion.
+  async restoreFromBackup(
+    tables: Record<string, any[]>,
+  ): Promise<Record<string, number>> {
+    const mapRow = (row: any) => {
+      const out: any = {};
+      for (const k of Object.keys(row)) {
+        const v = row[k];
+        out[k] =
+          typeof v === "string" &&
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v)
+            ? new Date(v)
+            : v;
+      }
+      return out;
+    };
+    // [clé backup, table drizzle, nom table SQL]
+    const insertOrder: [string, any, string][] = [
+      ["categories", categories, "categories"],
+      ["users", users, "users"],
+      ["admins", admins, "admins"],
+      ["products", products, "products"],
+      ["services", services, "services"],
+      ["exchange_rates", exchangeRates, "exchange_rates"],
+      ["transfers", transfers, "transfers"],
+      ["orders", orders, "orders"],
+      ["order_items", orderItems, "order_items"],
+      ["visits", visits, "visits"],
+      ["payment_methods", paymentMethods, "payment_methods"],
+      ["email_campaigns", emailCampaigns, "email_campaigns"],
+      ["afterpay_reminders", afterpayReminders, "afterpay_reminders"],
+    ];
+    const counts: Record<string, number> = {};
+    await db.transaction(async (tx) => {
+      // Vider dans l'ordre inverse (enfants d'abord)
+      for (let i = insertOrder.length - 1; i >= 0; i--) {
+        await tx.delete(insertOrder[i][1]);
+      }
+      // Réinsérer parents → enfants
+      for (const [key, table, dbName] of insertOrder) {
+        const rows = Array.isArray(tables[key]) ? tables[key] : [];
+        counts[key] = rows.length;
+        const mapped = rows.map(mapRow);
+        const chunk = 500;
+        for (let i = 0; i < mapped.length; i += chunk) {
+          const slice = mapped.slice(i, i + chunk);
+          if (slice.length > 0) await tx.insert(table).values(slice);
+        }
+        await tx.execute(
+          sql`SELECT setval(pg_get_serial_sequence(${dbName}, 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM ${sql.raw(dbName)}), 1))`,
+        );
+      }
+    });
+    return counts;
   }
 
   // Sauvegarde complète (toutes les tables) — export applicatif JSON

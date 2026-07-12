@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -573,6 +573,61 @@ export default function AdminSidebar() {
       setBackupLoading(false);
     }
   };
+
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const restoreFileRef = useRef<HTMLInputElement>(null);
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Réinitialiser tout de suite pour pouvoir re-sélectionner le même fichier
+    if (restoreFileRef.current) restoreFileRef.current.value = "";
+    if (!file) return;
+
+    const ok = window.confirm(
+      "⚠️ ATTENTION : la restauration REMPLACE toutes les données actuelles " +
+        "(utilisateurs, transferts, commandes, etc.) par celles du fichier de " +
+        "sauvegarde.\n\nCette opération est IRRÉVERSIBLE. Assure-toi d'avoir " +
+        "téléchargé un backup récent avant de continuer.\n\nVeux-tu vraiment " +
+        "restaurer cette sauvegarde ?",
+    );
+    if (!ok) return;
+
+    setRestoreLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await makeAuthenticatedRequest("/api/admin/restore", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        let msg = `Erreur ${response.status}`;
+        try {
+          const err = await response.json();
+          if (err?.message) msg = err.message;
+        } catch {
+          /* corps non-JSON */
+        }
+        throw new Error(msg);
+      }
+      const data = await response.json();
+      toast({
+        title: "Restauration réussie",
+        description: `${data.total} lignes restaurées. La page va se recharger.`,
+      });
+      // Recharger pour repartir sur des données fraîches
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e: any) {
+      toast({
+        title: "Échec de la restauration",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
   const [newAdmin, setNewAdmin] = useState({
     username: "",
     email: "",
@@ -4181,6 +4236,44 @@ export default function AdminSidebar() {
                     ⚠️ Ce fichier contient des données sensibles (mots de passe
                     hachés, etc.). Stockez-le de façon sécurisée et ne le
                     partagez pas.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Restauration d'une sauvegarde */}
+              <Card className="border-red-200">
+                <CardHeader>
+                  <CardTitle>Restaurer une sauvegarde</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Importez un fichier de backup GISABO pour restaurer les
+                    données. Utile pour migrer les données d'une base à une
+                    autre (par exemple depuis l'ancienne base vers la base de
+                    production).
+                  </p>
+                  <input
+                    ref={restoreFileRef}
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={handleRestore}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-50"
+                    disabled={restoreLoading}
+                    onClick={() => restoreFileRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {restoreLoading
+                      ? "Restauration en cours…"
+                      : "Restaurer depuis un fichier (JSON)"}
+                  </Button>
+                  <p className="text-xs text-red-600">
+                    ⚠️ Opération IRRÉVERSIBLE : la restauration REMPLACE
+                    intégralement toutes les données actuelles par celles du
+                    fichier. Téléchargez d'abord un backup récent.
                   </p>
                 </CardContent>
               </Card>

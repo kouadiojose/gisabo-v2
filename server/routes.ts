@@ -106,6 +106,13 @@ const uploadCsv = multer({
   limits: { fileSize: 30 * 1024 * 1024 },
 });
 
+// Restauration : un backup complet peut être volumineux (des dizaines de
+// milliers de transferts) → limite plus large que pour un simple CSV.
+const uploadBackup = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024 },
+});
+
 // Un champ CSV vaut "NULL" (texte) ou vide → null applicatif
 function csvVal(v: any): string | null {
   if (v === undefined || v === null) return null;
@@ -2144,6 +2151,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+
+  // Restauration d'une sauvegarde : REMPLACE intégralement les données
+  // actuelles par celles du fichier de backup. Opération destructive et
+  // transactionnelle (tout ou rien).
+  app.post(
+    "/api/admin/restore",
+    requireAdmin,
+    uploadBackup.single("file"),
+    async (req: any, res) => {
+      try {
+        if (!req.file || !req.file.buffer) {
+          return res
+            .status(400)
+            .json({ message: "Aucun fichier de sauvegarde fourni." });
+        }
+        let payload: any;
+        try {
+          payload = JSON.parse(req.file.buffer.toString("utf-8"));
+        } catch {
+          return res.status(400).json({
+            message: "Fichier invalide : ce n'est pas un backup JSON valide.",
+          });
+        }
+        if (
+          !payload ||
+          payload.app !== "gisabo" ||
+          !payload.tables ||
+          typeof payload.tables !== "object"
+        ) {
+          return res.status(400).json({
+            message:
+              "Fichier non reconnu : ce n'est pas une sauvegarde GISABO valide.",
+          });
+        }
+        const counts = await storage.restoreFromBackup(payload.tables);
+        const total = Object.values(counts).reduce(
+          (a: number, b: number) => a + b,
+          0,
+        );
+        console.log(
+          `♻️ [RESTORE] Restauration par admin ${req.admin.id} — ${total} lignes`,
+          counts,
+        );
+        res.json({ success: true, counts, total });
+      } catch (error: any) {
+        console.error("🚨 [RESTORE] Erreur:", error);
+        res.status(500).json({ message: error.message });
+      }
+    },
+  );
 
   // Liste des administrateurs
   app.get("/api/admin/admins", requireAdmin, async (req: any, res) => {
