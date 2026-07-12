@@ -2096,6 +2096,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Téléchargement d'une sauvegarde complète de la base (JSON)
+  app.get("/api/admin/backup", requireAdmin, async (req: any, res) => {
+    try {
+      const data = await storage.getDatabaseBackup();
+      const counts: Record<string, number> = {};
+      for (const [k, v] of Object.entries(data)) {
+        counts[k] = Array.isArray(v) ? v.length : 0;
+      }
+      const payload = {
+        app: "gisabo",
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        counts,
+        tables: data,
+      };
+      const stamp = new Date().toISOString().slice(0, 10);
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="gisabo-backup-${stamp}.json"`,
+      );
+      console.log(`💾 [BACKUP] Sauvegarde générée par admin ${req.admin.id}`);
+      res.send(JSON.stringify(payload));
+    } catch (error: any) {
+      console.error("🚨 [BACKUP] Erreur:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Liste des administrateurs
   app.get("/api/admin/admins", requireAdmin, async (req: any, res) => {
     try {

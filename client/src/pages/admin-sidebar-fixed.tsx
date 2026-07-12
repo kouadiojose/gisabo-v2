@@ -534,6 +534,36 @@ export default function AdminSidebar() {
   const [pwCurrent, setPwCurrent] = useState("");
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
+  const [backupLoading, setBackupLoading] = useState(false);
+
+  const downloadBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const response = await makeAuthenticatedRequest("/api/admin/backup");
+      if (!response.ok) throw new Error("Échec de la sauvegarde");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gisabo-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Sauvegarde téléchargée",
+        description: "Le fichier de backup a été enregistré.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Échec de la sauvegarde",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBackupLoading(false);
+    }
+  };
   const [newAdmin, setNewAdmin] = useState({
     username: "",
     email: "",
@@ -4113,6 +4143,36 @@ export default function AdminSidebar() {
                       ? "Modification…"
                       : "Modifier le mot de passe"}
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* Sauvegarde de la base de données */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sauvegarde de la base de données</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Téléchargez une copie complète de toutes les données
+                    (utilisateurs, transferts, commandes, produits, etc.) au
+                    format JSON. À conserver en lieu sûr — « on ne sait
+                    jamais ».
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={backupLoading}
+                    onClick={downloadBackup}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {backupLoading
+                      ? "Génération…"
+                      : "Télécharger un backup (JSON)"}
+                  </Button>
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Ce fichier contient des données sensibles (mots de passe
+                    hachés, etc.). Stockez-le de façon sécurisée et ne le
+                    partagez pas.
+                  </p>
                 </CardContent>
               </Card>
 

@@ -52,6 +52,7 @@ export interface IStorage {
   createTransfer(transfer: InsertTransfer): Promise<Transfer>;
   updateTransferStatus(id: number, status: string, squarePaymentId?: string, paymentMethod?: string): Promise<Transfer | undefined>;
   getAfterpayTransfers(): Promise<Transfer[]>;
+  getDatabaseBackup(): Promise<Record<string, any>>;
   hasAfterpayReminder(transferId: number, installment: number): Promise<boolean>;
   recordAfterpayReminder(transferId: number, installment: number): Promise<void>;
 
@@ -205,6 +206,54 @@ export class DatabaseStorage implements IStorage {
 
   async getAllTransfers(): Promise<Transfer[]> {
     return await db.select().from(transfers).orderBy(desc(transfers.createdAt));
+  }
+
+  // Sauvegarde complète (toutes les tables) — export applicatif JSON
+  async getDatabaseBackup(): Promise<Record<string, any>> {
+    const [
+      usersR,
+      adminsR,
+      categoriesR,
+      productsR,
+      servicesR,
+      transfersR,
+      ordersR,
+      orderItemsR,
+      exchangeRatesR,
+      visitsR,
+      paymentMethodsR,
+      emailCampaignsR,
+      afterpayRemindersR,
+    ] = await Promise.all([
+      db.select().from(users),
+      db.select().from(admins),
+      db.select().from(categories),
+      db.select().from(products),
+      db.select().from(services),
+      db.select().from(transfers),
+      db.select().from(orders),
+      db.select().from(orderItems),
+      db.select().from(exchangeRates),
+      db.select().from(visits),
+      db.select().from(paymentMethods),
+      db.select().from(emailCampaigns),
+      db.select().from(afterpayReminders),
+    ]);
+    return {
+      users: usersR,
+      admins: adminsR,
+      categories: categoriesR,
+      products: productsR,
+      services: servicesR,
+      transfers: transfersR,
+      orders: ordersR,
+      order_items: orderItemsR,
+      exchange_rates: exchangeRatesR,
+      visits: visitsR,
+      payment_methods: paymentMethodsR,
+      email_campaigns: emailCampaignsR,
+      afterpay_reminders: afterpayRemindersR,
+    };
   }
 
   async getAfterpayTransfers(): Promise<Transfer[]> {
