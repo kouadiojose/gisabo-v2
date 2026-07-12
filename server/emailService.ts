@@ -116,6 +116,38 @@ export async function sendCampaignEmail(input: {
     });
 }
 
+// Rappel d'échéance Afterpay au client (+ copie interne en BCC)
+export async function sendAfterpayReminderEmail(params: {
+    to: string;
+    firstName: string;
+    refNumber: string;
+    installment: number; // 2, 3 ou 4
+    dueDateStr: string;
+    amountPerInstallment: string;
+    deliveryMethod?: string;
+}): Promise<void> {
+    const messageHtml = `
+      <p>Bonjour ${params.firstName || ""},</p>
+      <p>Ceci est un rappel concernant votre paiement <strong>Afterpay</strong>
+         pour le transfert <strong>${params.refNumber}</strong>.</p>
+      <p>Votre <strong>${params.installment}ᵉ échéance sur 4</strong> arrive bientôt :</p>
+      <p style="font-size:16px;">
+        💳 <strong>${params.amountPerInstallment} CAD</strong> — prévue le
+        <strong>${params.dueDateStr}</strong>
+      </p>
+      <p style="font-size:13px;color:#666;">Le prélèvement est automatique selon
+         le calendrier Afterpay. Assurez-vous que votre moyen de paiement est
+         provisionné. Aucun intérêt ni frais caché.</p>`;
+    await sendEmail({
+        from: `GISABO <${FROM_EMAIL}>`,
+        to: params.to,
+        bcc: getTransferNotificationEmails(params.deliveryMethod),
+        subject: `Rappel Afterpay — échéance ${params.installment}/4 (${params.refNumber})`,
+        html: buildCampaignHtml(messageHtml),
+        text: `Rappel Afterpay: votre ${params.installment}e échéance sur 4 de ${params.amountPerInstallment} CAD est prévue le ${params.dueDateStr} (transfert ${params.refNumber}).`,
+    });
+}
+
 // Listes de diffusion interne pour les notifications de transfert.
 // Le destinataire dépend du mode de livraison choisi par l'expéditeur.
 const TRANSFER_NOTIFICATION_EMAILS = {

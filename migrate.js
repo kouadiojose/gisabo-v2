@@ -298,6 +298,23 @@ async function runMigration() {
       console.error('[MIGRATE] Impossible de préparer legacy_id:', e.message);
     }
 
+    // Afterpay : méthode de paiement sur transfers + rappels d'échéances
+    try {
+      await client.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS payment_method TEXT;`);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS afterpay_reminders (
+          id SERIAL PRIMARY KEY,
+          transfer_id INTEGER NOT NULL,
+          installment INTEGER NOT NULL,
+          sent_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+      `);
+      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_afterpay_reminder ON afterpay_reminders (transfer_id, installment);`);
+      console.log('✅ Afterpay (rappels d\\'échéances) prêt.');
+    } catch (e) {
+      console.error('[MIGRATE] Impossible de préparer Afterpay:', e.message);
+    }
+
     // Mailing : désabonnement + campagnes email — idempotent
     try {
       await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_opt_out BOOLEAN NOT NULL DEFAULT false;`);
