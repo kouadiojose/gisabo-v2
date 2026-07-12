@@ -14,7 +14,7 @@ import QRCode from "qrcode";
 import { parse as parseCsv } from "csv-parse/sync";
 import iconv from "iconv-lite";
 import sanitizeHtml from "sanitize-html";
-import { sendTransferConfirmationEmail, sendOrderConfirmationEmail, sendCampaignEmail, buildCampaignHtml } from "./emailService";
+import { sendTransferConfirmationEmail, sendOrderConfirmationEmail, sendCampaignEmail, buildCampaignHtml, sendNewUserNotificationEmail, sendWelcomeEmail } from "./emailService";
 import { chatWithGisaboAssistant, generateChatSuggestions } from "./openai";
 // Utilisation de l'API REST Square directement
 
@@ -136,6 +136,32 @@ interface AuthRequest extends Request {
 // Tolère une dérive d'horloge de ±1 pas (±30s) lors de la vérification TOTP
 authenticator.options = { window: 1 };
 
+// Vérification reCAPTCHA v3 (optionnelle : désactivée si pas de clé secrète).
+async function verifyRecaptcha(token?: string): Promise<boolean> {
+  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  if (!secret) return true; // non configuré → on n'exige rien
+  if (!token) return false;
+  try {
+    const resp = await fetch(
+      "https://www.google.com/recaptcha/api/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`,
+      },
+    );
+    const data: any = await resp.json();
+    // v3 renvoie un score ; v2 n'en a pas
+    return (
+      data.success === true &&
+      (data.score === undefined || data.score >= 0.5)
+    );
+  } catch (e) {
+    console.error("🚨 [reCAPTCHA] Vérification échouée:", e);
+    return false;
+  }
+}
+
 // Retire les champs sensibles avant d'envoyer un utilisateur au client
 function sanitizeUser(user: any) {
   if (!user) return user;
@@ -214,10 +240,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", healthCheckHandler);
 
   // Auth routes
+  // Configuration publique (clé publique reCAPTCHA, etc.)
+  app.get("/api/public-config", (req, res) => {
+    res.json({ recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || "" });
+  });
+
   app.post("/api/auth/register", async (req, res) => {
     try {
+      const okCaptcha = await verifyRecaptcha(req.body?.recaptchaToken);
+      if (!okCaptcha) {
+        return res
+          .status(400)
+          .json({ message: "Vérification anti-robot échouée. Réessayez." });
+      }
       const userData = insertUserSchema.parse(req.body);
-      
+
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
@@ -226,12 +263,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Hash password
       const hashedPassword = await bcrypt.hash(userData.password, 10);
-      
+
       // Create user
       const user = await storage.createUser({
         ...userData,
         password: hashedPassword,
       });
+
+      // Notifications email en arrière-plan (n'échoue jamais l'inscription)
+      sendNewUserNotificationEmail(user).catch((e) =>
+        console.error("🚨 [INSCRIPTION] Notif équipe:", e),
+      );
+      sendWelcomeEmail(user).catch((e) =>
+        console.error("🚨 [INSCRIPTION] Email bienvenue:", e),
+      );
 
       // Generate JWT token
       const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -248,7 +293,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
+
+      const okCaptcha = await verifyRecaptcha(req.body?.recaptchaToken);
+      if (!okCaptcha) {
+        return res
+          .status(400)
+          .json({ message: "Vérification anti-robot échouée. Réessayez." });
+      }
+
       // Try to find user by email first, then by username
       let user = await storage.getUserByEmail(username);
       if (!user) {

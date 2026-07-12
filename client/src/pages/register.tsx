@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { setAuthToken } from "@/lib/auth";
+import { getRecaptchaToken } from "@/lib/recaptcha";
 import { Link } from "wouter";
 import Navbar from "@/components/navbar";
 
@@ -39,10 +40,11 @@ export default function Register() {
 
     try {
       const { confirmPassword, ...registrationData } = formData;
+      const recaptchaToken = await getRecaptchaToken("register");
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(registrationData),
+        body: JSON.stringify({ ...registrationData, recaptchaToken }),
       });
 
       if (!response.ok) {

@@ -148,6 +148,49 @@ export async function sendAfterpayReminderEmail(params: {
     });
 }
 
+// Notification interne : un nouvel utilisateur s'est inscrit
+export async function sendNewUserNotificationEmail(user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    username: string;
+}): Promise<void> {
+    await sendEmail({
+        from: `GISABO <${FROM_EMAIL}>`,
+        to: FROM_EMAIL,
+        bcc: ORDER_NOTIFICATION_EMAILS,
+        subject: `Nouvel inscrit — ${user.firstName} ${user.lastName}`,
+        html: buildCampaignHtml(
+            `<p>Un nouvel utilisateur vient de s'inscrire sur GISABO :</p>
+             <ul>
+               <li><strong>Nom :</strong> ${user.firstName} ${user.lastName}</li>
+               <li><strong>Email :</strong> ${user.email}</li>
+               <li><strong>Identifiant :</strong> ${user.username}</li>
+             </ul>`,
+        ),
+        text: `Nouvel inscrit: ${user.firstName} ${user.lastName} (${user.email})`,
+    });
+}
+
+// Email de bienvenue au nouvel utilisateur
+export async function sendWelcomeEmail(user: {
+    firstName: string;
+    email: string;
+}): Promise<void> {
+    await sendEmail({
+        from: `GISABO <${FROM_EMAIL}>`,
+        to: user.email,
+        subject: "Bienvenue chez GISABO 🎉",
+        html: buildCampaignHtml(
+            `<p>Bonjour ${user.firstName},</p>
+             <p>Bienvenue chez <strong>GISABO</strong> ! Votre compte a bien été créé.</p>
+             <p>Vous pouvez dès maintenant envoyer de l'argent à vos proches et explorer notre marketplace.</p>
+             <p>À très vite,<br/>L'équipe Gisabo</p>`,
+        ),
+        text: `Bienvenue chez GISABO, ${user.firstName} ! Votre compte a bien été créé.`,
+    });
+}
+
 // Listes de diffusion interne pour les notifications de transfert.
 // Le destinataire dépend du mode de livraison choisi par l'expéditeur.
 const TRANSFER_NOTIFICATION_EMAILS = {

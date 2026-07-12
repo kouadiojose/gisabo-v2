@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { setAuthToken } from "@/lib/auth";
+import { getRecaptchaToken } from "@/lib/recaptcha";
 import { Link } from "wouter";
 import Navbar from "@/components/navbar";
 
@@ -56,9 +57,11 @@ export default function Login() {
     setIsLoading(true);
 
     try {
+      const recaptchaToken = await getRecaptchaToken("login");
       const loginData = {
         username: formData.email,
-        password: formData.password
+        password: formData.password,
+        recaptchaToken,
       };
       const response = await fetch("/api/auth/login", {
         method: "POST",
