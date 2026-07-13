@@ -1,4 +1,7 @@
+// ⚠️ À importer EN PREMIER : initialise Sentry avant tout le reste de l'app.
+import "./instrument";
 import express, { type Request, Response, NextFunction } from "express";
+import * as Sentry from "@sentry/node";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
@@ -77,6 +80,21 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+
+      // Toute réponse 5xx d'une route API remonte à Sentry pour alerte.
+      // La plupart des routes gèrent leur erreur en interne (res.status(500)
+      // sans throw) : ce hook garantit qu'on est quand même alerté, avec le
+      // message d'erreur réel présent dans le corps de la réponse.
+      if (res.statusCode >= 500) {
+        const detail =
+          capturedJsonResponse && (capturedJsonResponse as any).message
+            ? (capturedJsonResponse as any).message
+            : "erreur serveur";
+        Sentry.captureMessage(
+          `HTTP ${res.statusCode} ${req.method} ${path} — ${detail}`,
+          "error",
+        );
+      }
     }
   });
 
@@ -85,6 +103,10 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+
+  // Sentry : capture les erreurs remontées par Express (500) AVANT notre
+  // propre gestionnaire d'erreurs. No-op si SENTRY_DSN n'est pas défini.
+  Sentry.setupExpressErrorHandler(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
