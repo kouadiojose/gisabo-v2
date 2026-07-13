@@ -37,7 +37,21 @@ function buildPaymentIdempotencyKey(
   return `${prefix}_${scope}_${tokenHash}`; // <= 45 caractères (limite Square)
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "gisabo-admin-secret-key-2024";
+// Sécurité : la clé JWT ne doit JAMAIS avoir de valeur par défaut en
+// production (une clé en dur dans le code = tokens admin forgeables par
+// quiconque lit le dépôt). En production, on exige donc JWT_SECRET et on
+// refuse de démarrer sinon. En développement, un fallback évite d'avoir à
+// configurer une variable pour lancer le projet localement.
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  (process.env.NODE_ENV === "production" ? "" : "gisabo-dev-secret-local-only");
+if (!JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET est obligatoire en production. Démarrage refusé pour éviter " +
+      "une clé de signature par défaut non sécurisée. Définissez JWT_SECRET " +
+      "dans les variables d'environnement.",
+  );
+}
 const SQUARE_APPLICATION_ID = process.env.SQUARE_APPLICATION_ID || "";
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN || "";
 

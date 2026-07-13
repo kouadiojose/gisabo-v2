@@ -1,14 +1,57 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import path from "path";
 
 const app = express();
+
+// Derrière le proxy Railway : nécessaire pour que req.ip reflète l'IP réelle
+// du client (et non celle du proxy) — indispensable au rate limiting.
+app.set("trust proxy", 1);
+
+// En-têtes de sécurité HTTP. On désactive la CSP par défaut (elle casserait
+// le SPA + Square + reCAPTCHA + Font Awesome) ; à durcir plus tard avec une
+// politique sur-mesure. Les autres protections (HSTS, noSniff, frameguard…)
+// restent actives.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Servir les fichiers statiques depuis le dossier uploads
 app.use('/uploads', express.static('uploads'));
+
+// Rate limiting : protège les routes sensibles contre le brute-force et les
+// robots. Limite par IP. Les routes de connexion/inscription/réinitialisation
+// sont les plus exposées.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15, // 15 tentatives / IP / fenêtre
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message:
+      "Trop de tentatives. Réessayez dans quelques minutes.",
+  },
+});
+const authPaths = [
+  "/api/auth/register",
+  "/api/auth/login",
+  "/api/auth/login/2fa",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+  "/api/admin/login",
+];
+for (const p of authPaths) {
+  app.use(p, authLimiter);
+}
 
 app.use((req, res, next) => {
   const start = Date.now();
