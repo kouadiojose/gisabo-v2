@@ -453,10 +453,19 @@ async function runMigration() {
     console.log('🚀 Votre marketplace est prête!');
 
   } catch (error) {
+    // Bannière TRÈS visible : un échec de migration silencieux a déjà causé
+    // des heures de débogage (colonnes manquantes → erreurs 500). On rend
+    // l'échec impossible à rater dans les logs de déploiement.
+    console.error('');
+    console.error('╔══════════════════════════════════════════════════════════╗');
+    console.error('║  ⛔  ÉCHEC DE LA MIGRATION — À CORRIGER EN PRIORITÉ  ⛔   ║');
+    console.error('╠══════════════════════════════════════════════════════════╣');
+    console.error('║  Le serveur va quand même démarrer, mais des colonnes ou  ║');
+    console.error('║  tables peuvent manquer → risque d\'erreurs 500 côté API.  ║');
+    console.error('╚══════════════════════════════════════════════════════════╝');
     console.error('[MIGRATE] Erreur:', error.message);
     console.error('[MIGRATE] Stack:', error.stack);
-    // Ne pas exit(1) pour que npm start puisse quand même démarrer
-    console.error('[MIGRATE] La migration a échoué mais le serveur va démarrer.');
+    console.error('');
   } finally {
     try { await client.end(); } catch (e) { /* ignore */ }
   }
