@@ -45,6 +45,7 @@
     "@replit/vite-plugin-cartographer": "^0.2.5",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@sendgrid/mail": "^8.1.5",
+    "@sentry/node": "^10.65.0",
     "@tanstack/react-query": "^5.60.5",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.9",
