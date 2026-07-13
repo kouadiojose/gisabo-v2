@@ -16,8 +16,16 @@ if (!DATABASE_URL) {
   process.exit(0);
 }
 
-// SSL uniquement si explicitement requis dans l'URL
-const useSSL = DATABASE_URL.includes('sslmode=require');
+// SSL : on s'aligne EXACTEMENT sur la config de l'app (server/db.ts).
+// En production, l'app se connecte avec SSL ({ rejectUnauthorized: false }).
+// Si migrate.js utilisait une logique différente (ex. exiger « sslmode=require »
+// dans l'URL), il pouvait échouer à se connecter à une base qui, elle, exige
+// SSL (ex. DigitalOcean) — la migration était alors ignorée en silence
+// (railway.toml : « node migrate.js; npm start »), et l'app démarrait sans
+// les colonnes ajoutées → erreurs « column ... does not exist ».
+const useSSL =
+  process.env.NODE_ENV === 'production' ||
+  DATABASE_URL.includes('sslmode=require');
 const client = new Client({
   connectionString: DATABASE_URL,
   ssl: useSSL ? { rejectUnauthorized: false } : false
@@ -310,7 +318,7 @@ async function runMigration() {
         );
       `);
       await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_afterpay_reminder ON afterpay_reminders (transfer_id, installment);`);
-      console.log('✅ Afterpay (rappels d\\'échéances) prêt.');
+      console.log("✅ Afterpay (rappels d'échéances) prêt.");
     } catch (e) {
       console.error('[MIGRATE] Impossible de préparer Afterpay:', e.message);
     }
@@ -357,17 +365,41 @@ async function runMigration() {
       console.error('[MIGRATE] Impossible de préparer payment_methods:', e.message);
     }
 
-    // Vérifier si la migration a déjà été exécutée
-    try {
-      const check = await client.query('SELECT COUNT(*) FROM categories');
-      if (parseInt(check.rows[0].count) > 0) {
-        console.log('✅ Base de données déjà initialisée, migration ignorée.');
-        return;
+    // Vérifier si la base contient DÉJÀ des données avant de lancer la
+    // migration DESTRUCTIVE (DROP TABLE + réinsertion des données de démo).
+    // SÉCURITÉ : on ne se contente pas de regarder « categories ». On vérifie
+    // TOUTES les tables de données importantes. Si l'UNE d'elles contient des
+    // lignes, la base n'est PAS vide → on saute la partie destructive pour ne
+    // JAMAIS risquer d'effacer des données réelles (ex. 22 000 transferts alors
+    // que « categories » serait accidentellement vide).
+    const dataTables = [
+      'categories',
+      'users',
+      'transfers',
+      'orders',
+      'products',
+      'services',
+    ];
+    let hasAnyData = false;
+    for (const t of dataTables) {
+      try {
+        const check = await client.query(`SELECT COUNT(*)::int AS n FROM ${t}`);
+        const n = check.rows[0].n;
+        if (n > 0) {
+          hasAnyData = true;
+          console.log(`ℹ️ Table ${t} : ${n} ligne(s) déjà présente(s).`);
+        }
+      } catch (e) {
+        // La table n'existe pas encore → ne compte pas comme des données.
       }
-    } catch (e) {
-      // Table n'existe pas encore, on continue avec la migration
-      console.log('📦 Base de données vide, lancement de la migration...');
     }
+    if (hasAnyData) {
+      console.log(
+        '✅ Base de données déjà peuplée, migration destructive IGNORÉE (données préservées).',
+      );
+      return;
+    }
+    console.log('📦 Base de données vide, lancement de la migration initiale...');
 
     // Exécution de la migration en étapes séparées
     console.log('🔧 Création des tables...');
