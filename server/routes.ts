@@ -1651,8 +1651,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Diagnostic : à quelle base l'app est-elle réellement connectée, et que
-  // contient-elle vraiment (comptage SQL brut, sans passer par Drizzle) ?
   // Test Sentry : déclenche volontairement une erreur 500 pour vérifier que
   // les alertes de monitoring arrivent bien. Réservé aux admins. Handler
   // SYNCHRONE : en Express 4, un throw synchrone est bien routé vers le
@@ -1663,6 +1661,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
   });
 
+  // Diagnostic : à quelle base l'app est-elle réellement connectée, et que
+  // contient-elle vraiment (comptage SQL brut, sans passer par Drizzle) ?
   app.get("/api/admin/db-info", requireAdmin, async (req: any, res) => {
     try {
       // Host de la base, sans jamais exposer le mot de passe
