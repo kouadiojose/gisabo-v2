@@ -2,7 +2,7 @@ import express, { type Express, Request, Response, NextFunction } from "express"
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertTransferSchema, insertOrderSchema, insertOrderItemSchema, insertExchangeRateSchema, insertServiceSchema, insertProductSchema, insertAdminSchema, users as usersTable, transfers as transfersTable, admins as adminsTable, categories as categoriesTable, products as productsTable, services as servicesTable, orders as ordersTable, orderItems as orderItemsTable, exchangeRates as exchangeRatesTable, visits as visitsTable, paymentMethods as paymentMethodsTable, emailCampaigns as emailCampaignsTable, afterpayReminders as afterpayRemindersTable } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { applyAfterpayFee } from "@shared/payment-fees";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -1632,6 +1632,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const stats = await storage.getVisitStats();
       res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Diagnostic : à quelle base l'app est-elle réellement connectée, et que
+  // contient-elle vraiment (comptage SQL brut, sans passer par Drizzle) ?
+  app.get("/api/admin/db-info", requireAdmin, async (req: any, res) => {
+    try {
+      // Host de la base, sans jamais exposer le mot de passe
+      let host = "inconnu";
+      try {
+        const u = new URL(process.env.DATABASE_URL || "");
+        host = `${u.hostname}:${u.port || "5432"}${u.pathname}`;
+      } catch {
+        /* URL non parsable */
+      }
+      const info: any = { host };
+      // Base courante côté serveur Postgres
+      try {
+        const r = await pool.query(
+          "SELECT current_database() AS db, inet_server_addr()::text AS server_ip",
+        );
+        info.currentDatabase = r.rows[0]?.db;
+        info.serverIp = r.rows[0]?.server_ip;
+      } catch (e: any) {
+        info.currentDatabaseError = e.message;
+      }
+      // Comptages SQL bruts, table par table (indépendants du schéma Drizzle)
+      const tables = [
+        "users",
+        "transfers",
+        "orders",
+        "categories",
+        "products",
+      ];
+      info.counts = {};
+      for (const t of tables) {
+        try {
+          const r = await pool.query(`SELECT COUNT(*)::int AS n FROM ${t}`);
+          info.counts[t] = r.rows[0]?.n;
+        } catch (e: any) {
+          info.counts[t] = `ERREUR: ${e.message}`;
+        }
+      }
+      // Comptage via Drizzle (révèle un éventuel décalage de colonnes)
+      try {
+        const viaDrizzle = await storage.getAllTransfers();
+        info.transfersViaDrizzle = viaDrizzle.length;
+      } catch (e: any) {
+        info.transfersViaDrizzleError = e.message;
+      }
+      res.json(info);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
